@@ -4,6 +4,7 @@
 [![R-CMD-check](https://github.com/diogoprov/crywolf/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/diogoprov/crywolf/actions/workflows/R-CMD-check.yaml)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23385045.svg)](https://doi.org/10.5281/zenodo.23385045)
 [![R-universe](https://diogoprov.r-universe.dev/crywolf/badges/version)](https://diogoprov.r-universe.dev/crywolf)
+[![Codecov test coverage](https://codecov.io/gh/diogoprov/crywolf/graph/badge.svg)](https://app.codecov.io/gh/diogoprov/crywolf)
 <!-- badges: end -->
 
 Bayesian false-positive occupancy models for data from automated detectors,
