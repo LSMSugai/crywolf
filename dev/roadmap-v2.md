@@ -324,6 +324,34 @@ simulados. Com o fator de 1,14 da c7a medido no fpcalib, ~7.300 ajustes
 ~600) somam ~170 núcleo-hora. Isso dá ~1 h por lote numa c7a.48xlarge
 spot, ~US$ 3 a 5 no total, com teto de US$ 10 a 15 se o desenho crescer.
 
+**Passos 6 e 7 rodados em 01/11/2026 (PR 5), sem o `fp_calibrate()`.**
+Scripts em `dev/dyn-sim/` e tabelas em `dev/dyn-sim/results.md`. Foram
+4.450 tarefas numa c7a.24xlarge spot (94 workers), em ~2,8 h e com uma
+interrupção retomada. Nenhum dos 6.700 ajustes falhou. Na identificação e
+na recuperação, três dos 5.700 ajustes tiveram R-hat ≥ 1,01 ou
+divergências.
+
+- Identificação (passo 6), 100 sítios, p11 = 0,6, 50 réplicas por célula.
+  Com `fp = ~ 1`, colonização, extinção, `psi1`, `p10_bar` e `psi_fs` têm
+  viés < 0,02 e cobertura de 0,88 a 1,00 em todas as 45 células. Isso vale
+  inclusive sem nenhuma sítio-temporada verificada. Neste desenho, a
+  separação entre p11 e p10 e o prior do `fp_gap` bastam para identificar
+  o modelo. Verificar 40% das sítio-temporadas estreita o intervalo de
+  `p10_bar` em 20 a 25% e o de colonização em 5 a 12%. O modelo sem falsos
+  positivos superestima a colonização em +0,06, +0,15 e +0,28 com p10 de
+  0,02, 0,05 e 0,10, e a cobertura cai para 0 a 0,82. A extinção é bem
+  menos afetada (viés < 0,035). O desenho não testou p11 baixo, em que a
+  verificação deve pesar mais.
+- Recuperação com covariáveis (passo 7), 300 réplicas por desenho.
+  Coberturas de 0,92 a 0,98 para todos os coeficientes nos quatro
+  desenhos (100 ou 200 sítios × 5 ou 10 temporadas). Os vieses dos
+  declives são pequenos diante do RMSE e caem com o tamanho do desenho.
+- SBC (passo 7), 1.000 réplicas. Ranks uniformes (qui-quadrado, 10
+  classes) para 8 dos 10 parâmetros. O intercepto da extinção tem p =
+  0,003, com excesso no meio do histograma (posterior um pouco larga
+  demais, isto é, conservadora). O intercepto de fp tem p = 0,048. Cinco
+  ajustes tiveram divergências.
+
 ### Riscos
 
 - Tempo: a observação domina o custo hoje, e ela não muda; o forward
