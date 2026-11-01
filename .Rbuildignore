@@ -17,3 +17,4 @@
 ^AI interaction log\.md$
 ^src/stan/fp_occu_dyn$
 ^\.dockerignore$
+^codecov\.yml$
