@@ -234,19 +234,9 @@ fp_occu <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
     warning("No verified data: the false-positive rate is identified only by ",
             "the priors. Treat the estimates with caution.", call. = FALSE)
   }
-  if (identical(threads_per_chain, "auto")) {
-    threads_per_chain <- .auto_threads(parallel_chains)
-  }
-  threads_per_chain <- suppressWarnings(as.integer(threads_per_chain))
-  if (length(threads_per_chain) != 1 || is.na(threads_per_chain) ||
-      threads_per_chain < 1) {
-    stop("`threads_per_chain` must be a positive integer or \"auto\".", call. = FALSE)
-  }
-  # CRAN allows two cores under R CMD check: count chains x threads
-  if (.check_limits_cores()) {
-    threads_per_chain <- min(threads_per_chain, 2L)
-    parallel_chains <- max(1L, min(parallel_chains, 2L %/% threads_per_chain))
-  }
+  cores <- .sampler_cores(threads_per_chain, parallel_chains)
+  threads_per_chain <- cores$threads_per_chain
+  parallel_chains <- cores$parallel_chains
   sd_list <- .build_stan_data(data, occ, det, fp, random_recorder, priors,
                               random_fp = random_fp, ver = ver, markov = markov,
                               random_det = random_det)
@@ -297,6 +287,25 @@ fp_occu <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
   )
   .warn_diagnostics(diag)
   out
+}
+
+# threads per chain ("auto" or a positive integer) and parallel chains,
+# within the two cores that R CMD check allows
+.sampler_cores <- function(threads_per_chain, parallel_chains) {
+  if (identical(threads_per_chain, "auto")) {
+    threads_per_chain <- .auto_threads(parallel_chains)
+  }
+  threads_per_chain <- suppressWarnings(as.integer(threads_per_chain))
+  if (length(threads_per_chain) != 1 || is.na(threads_per_chain) ||
+      threads_per_chain < 1) {
+    stop("`threads_per_chain` must be a positive integer or \"auto\".", call. = FALSE)
+  }
+  # CRAN allows two cores under R CMD check: count chains x threads
+  if (.check_limits_cores()) {
+    threads_per_chain <- min(threads_per_chain, 2L)
+    parallel_chains <- max(1L, min(parallel_chains, 2L %/% threads_per_chain))
+  }
+  list(threads_per_chain = threads_per_chain, parallel_chains = parallel_chains)
 }
 
 # a name for CmdStan's output files that no other fit in any session shares,

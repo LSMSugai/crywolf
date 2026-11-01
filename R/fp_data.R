@@ -31,6 +31,15 @@
 #'   checked. All observations of a checked occasion must have been checked,
 #'   so an occasion with a detection has at least one confirmed observation,
 #'   and one without has none. See Details of [fp_occu()].
+#' @param season Optional name of a column of `auto` (and of `verified`, if
+#'   given) holding the season, or primary period, of each occasion, for the
+#'   dynamic model. Seasons are ordered by the levels of a factor, and
+#'   otherwise by sorting their values, so numbers, dates and ISO dates as
+#'   text (such as `night` or `recording_date` of a 'sheepdog' export) all
+#'   work. Consecutive seasons are treated as one transition apart, even if
+#'   time between them is missing. A site without data in a season
+#'   contributes to that season only through the transitions of its
+#'   occupancy state. [fp_occu()] ignores this column.
 #'
 #' @details
 #' Besides errors for data that cannot be fitted, `fp_data()` warns about
@@ -39,14 +48,18 @@
 #' unequal automated effort among sites (ten times or more), automated
 #' occasions that are all detections or all non-detections, verified data
 #' without any detection, and confirmed occasions without any false
-#' observation.
+#' observation. With `season`, it also warns about seasons without data at
+#' any site (unused levels of a factor) and about seasons without verified
+#' or confirmed data, in which colonization and extinction are hard to tell
+#' from false positives.
 #' [fp_aggregate()] builds `auto` from classifier output.
 #'
 #' @return An object of class `fp_data`: a list with the tables `auto`,
 #'   `verified` and `sites` (rows with a missing detection dropped), the
-#'   column names `site`, `y`, `recorder` and `confirmed`, and the vector
-#'   `known_present`, which flags sites with at least one verified detection
-#'   or confirmed true observation.
+#'   column names `site`, `y`, `recorder`, `confirmed` and `season`, the
+#'   vector `known_present`, which flags sites with at least one verified
+#'   detection or confirmed true observation, and, with `season`, the
+#'   seasons in time order in `seasons`.
 #' @references
 #' Chambert, T., Miller, D. A. W., & Nichols, J. D. (2015). Modeling false
 #' positive detections in species occurrence data under different study
@@ -62,8 +75,8 @@
 #'              verified = sim$data$verified, recorder = "recorder")
 #' d
 fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
-                    recorder = NULL, confirmed = NULL) {
-  .check_df(auto, "auto", c(site, y, recorder, confirmed))
+                    recorder = NULL, confirmed = NULL, season = NULL) {
+  .check_df(auto, "auto", c(site, y, recorder, confirmed, season))
   .check_df(sites, "sites", site)
   if (anyDuplicated(sites[[site]])) {
     stop("`sites` must have one row per site; duplicated identifiers found in `",
@@ -74,7 +87,7 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   .check_sites_known(auto[[site]], sites[[site]], "auto", site)
 
   if (!is.null(verified)) {
-    .check_df(verified, "verified", c(site, y))
+    .check_df(verified, "verified", c(site, y, season))
     verified <- verified[!is.na(verified[[y]]), , drop = FALSE]
     .check_binary(verified[[y]], "verified")
     .check_sites_known(verified[[site]], sites[[site]], "verified", site)
@@ -84,7 +97,9 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   }
 
   if (!is.null(confirmed)) .check_confirmed(auto, confirmed, y)
+  seasons <- if (!is.null(season)) .season_levels(auto, verified, season)
   .warn_design(auto, sites, verified, site, y, confirmed)
+  if (!is.null(season)) .warn_seasons(auto, verified, confirmed, season, seasons)
 
   known_present <- rep(0L, nrow(sites))
   if (!is.null(verified) && nrow(verified) > 0) {
@@ -99,7 +114,7 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   structure(
     list(auto = auto, verified = verified, sites = sites,
          site = site, y = y, recorder = recorder, confirmed = confirmed,
-         known_present = known_present),
+         known_present = known_present, season = season, seasons = seasons),
     class = "fp_data"
   )
 }
@@ -195,10 +210,15 @@ print.fp_data <- function(x, ...) {
   if (!is.null(x$recorder)) {
     cat(sprintf("  recorders:              %d\n", length(unique(x$auto[[x$recorder]]))))
   }
+  if (!is.null(x$season)) {
+    n_sites <- .sites_per_season(x)
+    cat(sprintf("  seasons:                %d (sites with data per season: %d to %d, median %g)\n",
+                length(n_sites), min(n_sites), max(n_sites), stats::median(n_sites)))
+  }
   covs <- setdiff(names(x$sites), x$site)
   if (length(covs)) cat("  site covariates:       ", paste(covs, collapse = ", "), "\n")
   ocovs <- setdiff(names(x$auto), c(x$site, x$y, x$recorder, x$confirmed,
-                                    "occasion"))
+                                    x$season, "occasion"))
   if (length(ocovs)) cat("  observation covariates:", paste(ocovs, collapse = ", "), "\n")
   invisible(x)
 }
@@ -255,6 +275,77 @@ print.fp_data <- function(x, ...) {
     warn("No confirmed occasion holds a false observation; the false-positive ",
          "rate will be estimated close to zero. Check that the checked ",
          "occasions were chosen independently of the classifier's score.")
+  }
+  invisible(TRUE)
+}
+
+# the seasons in time order: the levels of a factor, otherwise the sorted
+# values of `auto` and `verified` together
+.season_levels <- function(auto, verified, season) {
+  a <- auto[[season]]
+  v <- if (is.null(verified)) NULL else verified[[season]]
+  if (anyNA(a) || anyNA(v)) {
+    stop("Column `", season, "` has missing values.", call. = FALSE)
+  }
+  if (is.factor(a)) {
+    lv <- levels(a)
+    bad <- setdiff(as.character(v), lv)
+    if (length(bad)) {
+      stop("Seasons in `verified` are not levels of `auto$", season, "` (e.g. ",
+           paste(utils::head(bad, 3), collapse = ", "), ").", call. = FALSE)
+    }
+    return(lv)
+  }
+  if (!is.null(v) && !(is.numeric(a) && is.numeric(v)) &&
+      !identical(class(a), class(v))) {
+    stop("Column `", season, "` must have the same class in `auto` and ",
+         "`verified`.", call. = FALSE)
+  }
+  sort(unique(c(a, v)))
+}
+
+# index of the season of each row of a table; numbers and dates are matched
+# by value, factor levels and text as text
+.season_index <- function(df, season, seasons) {
+  x <- df[[season]]
+  if (is.character(seasons)) x <- as.character(x)
+  match(x, seasons)
+}
+
+# number of sites with automated or verified data in each season
+.sites_per_season <- function(x) {
+  t_all <- .season_index(x$auto, x$season, x$seasons)
+  s_all <- as.character(x$auto[[x$site]])
+  if (!is.null(x$verified)) {
+    t_all <- c(t_all, .season_index(x$verified, x$season, x$seasons))
+    s_all <- c(s_all, as.character(x$verified[[x$site]]))
+  }
+  first <- !duplicated(data.frame(s_all, t_all))
+  tabulate(t_all[first], nbins = length(x$seasons))
+}
+
+.warn_seasons <- function(auto, verified, confirmed, season, seasons) {
+  warn <- function(...) {
+    msg <- paste0(...)
+    warning(structure(class = c("crywolf_design_warning", "warning", "condition"),
+                      list(message = msg, call = NULL)))
+  }
+  nt <- length(seasons)
+  t_auto <- .season_index(auto, season, seasons)
+  t_ver <- if (is.null(verified)) integer(0) else .season_index(verified, season, seasons)
+  sampled <- tabulate(c(t_auto, t_ver), nbins = nt) > 0
+  if (any(!sampled)) {
+    warn(sum(!sampled), " season(s) have no data at any site (e.g. ",
+         paste(utils::head(seasons[!sampled], 3), collapse = ", "), "); they ",
+         "enter only through the transitions of occupancy.")
+  }
+  t_check <- t_ver
+  if (!is.null(confirmed)) t_check <- c(t_check, t_auto[!is.na(auto[[confirmed[1]]])])
+  unchecked <- sampled & tabulate(t_check, nbins = nt) == 0
+  if (any(unchecked)) {
+    warn(sum(unchecked), " season(s) have no verified or confirmed data (e.g. ",
+         paste(utils::head(seasons[unchecked], 3), collapse = ", "), "); there ",
+         "colonization and extinction are hard to tell from false positives.")
   }
   invisible(TRUE)
 }

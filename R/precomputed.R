@@ -5,7 +5,12 @@
 # that the posterior regression test showed to give the same posterior), so
 # that a vignette can say when its results may be out of date.
 
-.stan_md5 <- function() unname(tools::md5sum(fp_stan_file()))
+# of the program and of the functions it includes
+.stan_md5 <- function() {
+  files <- c(fp_stan_file(),
+             file.path(dirname(fp_stan_file()), "fp_emissions.stanfunctions"))
+  paste(tools::md5sum(files), collapse = "-")
+}
 
 .stamp <- function(x) {
   attr(x, "crywolf_stan_md5") <- .stan_md5()

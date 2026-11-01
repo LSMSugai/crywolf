@@ -252,6 +252,19 @@ sequência de temporadas.
 | Validação | recuperação em simulação, SBC uniforme, calibração por `fp_calibrate()` com desenho dinâmico |
 | Vinheta | curiango com as noites de cada sítio como temporadas (uso noite a noite), comparada por LOO com o modelo de sítio-noites independentes |
 
+**Passos 1 e 2 feitos em 01/11/2026.** `fp_data(season = )`;
+`fp_occu_dyn()` interno (não exportado até o passo 3 fixar os nomes), com
+colonização e extinção só com intercepto. As emissões ficaram em
+`src/stan/fp_emissions.stanfunctions`, incluído pelo `fp_occu.stan` (draws
+idênticos aos de antes) e pelo `fp_occu_dyn.stan`. Cada sítio-temporada é
+uma unidade, numerada `(sítio - 1) * nseason + temporada`, e os dados de
+observação das unidades saem do `.build_stan_data()` atual. Os efeitos
+aleatórios de sítio são por sítio. O Stan já recebe `Xcol` e `Xext` por
+unidade, então o passo 3 só mexe em R. Com uma temporada, a log-densidade
+é igual à do `fp_occu()` a ~3e-14 (`dev/check-dyn-one-season.R`), e o
+`log_lik` também (`test-fp_occu_dyn.R`). Com várias temporadas, a
+verossimilhança em R (`.dyn_loglik()`) é igual ao `log_lik` do Stan.
+
 ### Riscos
 
 - Tempo: a observação domina o custo hoje, e ela não muda; o forward
