@@ -299,6 +299,18 @@ casos pequenos, o FFBS bate com a enumeração das sequências de estados
 ajuste curto (150 sítios × 4 temporadas) recupera todos os parâmetros
 dentro dos intervalos de 95%. PR #8 com merge no main em 01/11/2026.
 
+**Passo 5 feito em 01/11/2026 (PR 4):** quantidades derivadas no
+`generated quantities` do `fp_occu_dyn.stan`, por draw: `psi_mean[t]`
+(ocupação esperada média sobre sítios), `psi_fs[t]` (ocupação realizada,
+com FFBS no Stan), `turnover[t]` (t ≥ 2) e `psi_eq` (só com `col` e `ext`
+só com intercepto). Ficaram no Stan, e não em R, para não guardar matrizes
+draws × ocasiões e para entrarem no `as_draws_df()` com R-hat e ESS. O
+`summary()` ganha a coluna `season`; o `print()` mostra só os parâmetros;
+os diagnósticos de convergência continuam só sobre os parâmetros.
+Verificado: `psi_mean`, `turnover` e `psi_eq` iguais às fórmulas a partir
+dos coeficientes (1e-8), média de `psi_fs` igual à do forward-backward em
+R, e `psi_fs` cobrindo a ocupação realizada simulada.
+
 **Divisão dos passos seguintes em PRs (aprovada em 01/11/2026):**
 PR 3, passo 4 (FFBS, `fp_sites()` por temporada, `simulate()`/`fp_ppc()` e
 simulador dinâmico); PR 4, passo 5; PR 5, passos 6 e 7 (rodadas na AWS);

@@ -184,8 +184,23 @@ and \verb{col_<term>}, and of extinction, \code{ext_(Intercept)} and
 between consecutive seasons. \code{p10_bar} averages over site-seasons in
 place of sites. \code{log_lik[i]} is the log-likelihood of site \code{i} over all
 its seasons. The raw Stan names are \code{beta[k]}, \code{beta_col[k]} and
-\code{beta_ext[k]}. Being experimental, these names may change in a minor
-version (see \link{crywolf-api}).
+\code{beta_ext[k]}.
+
+Derived quantities, one per season \code{t} (numbered in the order of the
+seasons; \code{summary()} gives the season of each in its \code{season} column):
+\code{psi_mean[t]}, the occupancy probability expected from the covariates
+(initial occupancy carried forward by colonization and extinction),
+averaged over sites; \code{psi_fs[t]}, the realized occupancy, the share of
+sites occupied, with the states drawn from their joint posterior given
+the data by forward filtering, backward sampling; \code{turnover[t]}, for
+\code{t >= 2}, the probability that a site occupied in season \code{t} was
+unoccupied in season \code{t - 1}, \eqn{\sum_i (1 - \psi_{i,t-1})
+\gamma_{it} / \sum_i \psi_{it}}{sum_i (1 - psi_i,t-1) gamma_it / sum_i
+psi_it}, with the expected occupancy \eqn{\psi}{psi}; and, when
+colonization and extinction have only an intercept, \code{psi_eq}, the
+equilibrium occupancy \eqn{\gamma / (\gamma + \epsilon)}{gamma / (gamma
++ eps)}. Being experimental, these names may change in a minor version
+(see \link{crywolf-api}).
 }
 
 \section{Readable draws and raw Stan names}{

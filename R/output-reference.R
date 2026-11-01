@@ -164,8 +164,23 @@
 #' between consecutive seasons. `p10_bar` averages over site-seasons in
 #' place of sites. `log_lik[i]` is the log-likelihood of site `i` over all
 #' its seasons. The raw Stan names are `beta[k]`, `beta_col[k]` and
-#' `beta_ext[k]`. Being experimental, these names may change in a minor
-#' version (see [crywolf-api]).
+#' `beta_ext[k]`.
+#'
+#' Derived quantities, one per season `t` (numbered in the order of the
+#' seasons; `summary()` gives the season of each in its `season` column):
+#' `psi_mean[t]`, the occupancy probability expected from the covariates
+#' (initial occupancy carried forward by colonization and extinction),
+#' averaged over sites; `psi_fs[t]`, the realized occupancy, the share of
+#' sites occupied, with the states drawn from their joint posterior given
+#' the data by forward filtering, backward sampling; `turnover[t]`, for
+#' `t >= 2`, the probability that a site occupied in season `t` was
+#' unoccupied in season `t - 1`, \eqn{\sum_i (1 - \psi_{i,t-1})
+#' \gamma_{it} / \sum_i \psi_{it}}{sum_i (1 - psi_i,t-1) gamma_it / sum_i
+#' psi_it}, with the expected occupancy \eqn{\psi}{psi}; and, when
+#' colonization and extinction have only an intercept, `psi_eq`, the
+#' equilibrium occupancy \eqn{\gamma / (\gamma + \epsilon)}{gamma / (gamma
+#' + eps)}. Being experimental, these names may change in a minor version
+#' (see [crywolf-api]).
 #'
 #' @section Readable draws and raw Stan names:
 #' The fitted object contains `draws`, `fit` (the backend fit), `data`,

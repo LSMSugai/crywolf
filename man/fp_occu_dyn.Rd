@@ -72,7 +72,9 @@ An object of class \code{fp_occu_dyn}, a list with \code{fit}, \code{draws}
 each site-season and \code{\link[=fp_ppc]{fp_ppc()}} checks the fit.
 
 \code{summary()} returns an object of class \code{summary.fp_occu}, as for
-\code{\link[=fp_occu]{fp_occu()}}.
+\code{\link[=fp_occu]{fp_occu()}}, whose table has also a \code{season} column: the season of the
+derived quantities \code{psi_mean[t]}, \code{psi_fs[t]} and \code{turnover[t]}, and
+empty for the other rows (see \link{crywolf-output}).
 }
 \description{
 Fits a false-positive occupancy model over several seasons (primary
@@ -103,6 +105,12 @@ missing dates, so colonization and extinction are probabilities per step
 colonization followed by an extinction: without verified or confirmed
 data in the seasons, the two processes are hard to separate from false
 positives.
+
+The fit also gives, per season, the expected and the realized occupancy
+over sites (\code{psi_mean}, \code{psi_fs}) and the turnover, and, with constant
+transitions, the equilibrium occupancy (\code{psi_eq}); see \link{crywolf-output}.
+\code{summary()} lists them with their season; \code{print()} shows only the
+parameters.
 }
 \examples{
 \dontrun{
