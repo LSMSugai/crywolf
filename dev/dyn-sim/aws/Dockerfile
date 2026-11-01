@@ -6,8 +6,10 @@
 # Build from the package root:  docker build -f dev/dyn-sim/aws/Dockerfile -t crywolf-dyn .
 FROM rocker/r-ver:4.6.1
 
+# libuv: the fs package (needed by instantiate) comes as a binary linked to it
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl libcurl4-openssl-dev libssl-dev libxml2-dev \
+      libuv1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # rocker/r-ver links R to multithreaded OpenBLAS; with one Stan fit per core,
