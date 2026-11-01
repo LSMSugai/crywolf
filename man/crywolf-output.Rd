@@ -174,6 +174,20 @@ its truth fields are \code{pars} (named generating coefficients), \code{z},
 \code{p10_site}, and \code{p10_bar}.
 }
 
+\section{Dynamic model (experimental)}{
+
+\code{\link[=fp_occu_dyn]{fp_occu_dyn()}} uses the names above, except that the coefficients of
+initial occupancy are \code{psi1_(Intercept)} and \verb{psi1_<term>} (in place of
+\verb{occ_*}), and adds the coefficients of colonization, \code{col_(Intercept)}
+and \verb{col_<term>}, and of extinction, \code{ext_(Intercept)} and
+\verb{ext_<term>}, on the logit scale of the probability per transition
+between consecutive seasons. \code{p10_bar} averages over site-seasons in
+place of sites. \code{log_lik[i]} is the log-likelihood of site \code{i} over all
+its seasons. The raw Stan names are \code{beta[k]}, \code{beta_col[k]} and
+\code{beta_ext[k]}. Being experimental, these names may change in a minor
+version (see \link{crywolf-api}).
+}
+
 \section{Readable draws and raw Stan names}{
 
 The fitted object contains \code{draws}, \code{fit} (the backend fit), \code{data},

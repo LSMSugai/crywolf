@@ -34,6 +34,7 @@ reference:
     desc: Fit the model and inspect, summarize, predict, and compare fits.
     contents:
       - fp_occu
+      - fp_occu_dyn
       - fp_occu_mc
       - fp_draws_data
       - fp_priors

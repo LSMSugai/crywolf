@@ -12,10 +12,11 @@ d$auto$season <- 1L
 d$verified$season <- 1L
 d <- suppressWarnings(fp_data(d$auto, d$sites, d$verified, recorder = "recorder",
                               confirmed = d$confirmed, season = "season"))
-args <- list(d, occ = ~ x, det = ~ 1, fp = ~ 1, random_recorder = TRUE,
+args <- list(d, det = ~ 1, fp = ~ 1, random_recorder = TRUE,
              priors = fp_priors(), random_fp = TRUE, random_det = TRUE)
-sd0 <- do.call(crywolf:::.build_stan_data, args)$stan_data
-sd1 <- do.call(crywolf:::.build_dyn_stan_data, args)$stan_data
+sd0 <- do.call(crywolf:::.build_stan_data, c(args, occ = ~ x))$stan_data
+sd1 <- do.call(crywolf:::.build_dyn_stan_data,
+               c(args, psi1 = ~ x, col = ~ 1, ext = ~ 1))$stan_data
 
 dir <- tempfile()
 dir.create(dir)

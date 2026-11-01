@@ -36,10 +36,22 @@
 #'   dynamic model. Seasons are ordered by the levels of a factor, and
 #'   otherwise by sorting their values, so numbers, dates and ISO dates as
 #'   text (such as `night` or `recording_date` of a 'sheepdog' export) all
-#'   work. Consecutive seasons are treated as one transition apart, even if
-#'   time between them is missing. A site without data in a season
-#'   contributes to that season only through the transitions of its
-#'   occupancy state. [fp_occu()] ignores this column.
+#'   work. When the seasons are dates (`Date`, or text as `YYYY-MM-DD` or
+#'   `YYYYMMDD`), the dates missing between the first and the last are added
+#'   as seasons without data, in steps of the shortest interval between
+#'   seasons, so that every transition spans the same time (one night, for
+#'   nightly seasons, even when no site recorded on some nights). Other
+#'   seasons (numbers, factors, other text) are taken as they come:
+#'   consecutive seasons are one transition apart, whatever the time between
+#'   them. A site without data in a season contributes to that season only
+#'   through the transitions of its occupancy state. [fp_occu()] ignores
+#'   this column.
+#' @param season_covs Optional data frame of covariates of the seasons, for
+#'   the colonization, extinction and initial occupancy formulas of
+#'   [fp_occu_dyn()] (and its detection and false-positive formulas). It has
+#'   the season column named by `season` and, for covariates that vary among
+#'   sites too, the site column; one row per season, or per site and season.
+#'   Seasons added between dates need rows only if a formula uses them.
 #'
 #' @details
 #' Besides errors for data that cannot be fitted, `fp_data()` warns about
@@ -49,9 +61,10 @@
 #' occasions that are all detections or all non-detections, verified data
 #' without any detection, and confirmed occasions without any false
 #' observation. With `season`, it also warns about seasons without data at
-#' any site (unused levels of a factor) and about seasons without verified
-#' or confirmed data, in which colonization and extinction are hard to tell
-#' from false positives.
+#' any site (unused levels of a factor, or dates added between the first
+#' and the last), about seasons without verified or confirmed data, in which
+#' colonization and extinction are hard to tell from false positives, and
+#' about seasons at unequal intervals that could not be filled in.
 #' [fp_aggregate()] builds `auto` from classifier output.
 #'
 #' @return An object of class `fp_data`: a list with the tables `auto`,
@@ -59,7 +72,9 @@
 #'   column names `site`, `y`, `recorder`, `confirmed` and `season`, the
 #'   vector `known_present`, which flags sites with at least one verified
 #'   detection or confirmed true observation, and, with `season`, the
-#'   seasons in time order in `seasons`.
+#'   seasons in time order in `seasons`, the step between dates in days in
+#'   `season_step` (`NULL` for seasons that are not dates) and the table
+#'   `season_covs`.
 #' @references
 #' Chambert, T., Miller, D. A. W., & Nichols, J. D. (2015). Modeling false
 #' positive detections in species occurrence data under different study
@@ -75,7 +90,8 @@
 #'              verified = sim$data$verified, recorder = "recorder")
 #' d
 fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
-                    recorder = NULL, confirmed = NULL, season = NULL) {
+                    recorder = NULL, confirmed = NULL, season = NULL,
+                    season_covs = NULL) {
   .check_df(auto, "auto", c(site, y, recorder, confirmed, season))
   .check_df(sites, "sites", site)
   if (anyDuplicated(sites[[site]])) {
@@ -97,7 +113,15 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   }
 
   if (!is.null(confirmed)) .check_confirmed(auto, confirmed, y)
-  seasons <- if (!is.null(season)) .season_levels(auto, verified, season)
+  seasons <- season_step <- NULL
+  if (!is.null(season)) {
+    seasons <- .season_levels(auto, verified, season)
+    # the levels of a factor are taken as they are
+    if (!is.factor(auto[[season]])) seasons <- .fill_seasons(seasons)
+    season_step <- attr(seasons, "step")
+    attr(seasons, "step") <- NULL
+  }
+  if (!is.null(season_covs)) .check_season_covs(season_covs, season, seasons, sites, site)
   .warn_design(auto, sites, verified, site, y, confirmed)
   if (!is.null(season)) .warn_seasons(auto, verified, confirmed, season, seasons)
 
@@ -114,7 +138,8 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   structure(
     list(auto = auto, verified = verified, sites = sites,
          site = site, y = y, recorder = recorder, confirmed = confirmed,
-         known_present = known_present, season = season, seasons = seasons),
+         known_present = known_present, season = season, seasons = seasons,
+         season_step = season_step, season_covs = season_covs),
     class = "fp_data"
   )
 }
@@ -212,14 +237,18 @@ print.fp_data <- function(x, ...) {
   }
   if (!is.null(x$season)) {
     n_sites <- .sites_per_season(x)
-    cat(sprintf("  seasons:                %d (sites with data per season: %d to %d, median %g)\n",
-                length(n_sites), min(n_sites), max(n_sites), stats::median(n_sites)))
+    cat(sprintf("  seasons:                %d%s (sites with data per season: %d to %d, median %g)\n",
+                length(n_sites),
+                if (is.null(x$season_step)) "" else sprintf(", %g day(s) apart", x$season_step),
+                min(n_sites), max(n_sites), stats::median(n_sites)))
   }
   covs <- setdiff(names(x$sites), x$site)
   if (length(covs)) cat("  site covariates:       ", paste(covs, collapse = ", "), "\n")
   ocovs <- setdiff(names(x$auto), c(x$site, x$y, x$recorder, x$confirmed,
                                     x$season, "occasion"))
   if (length(ocovs)) cat("  observation covariates:", paste(ocovs, collapse = ", "), "\n")
+  scovs <- setdiff(names(x$season_covs), c(x$site, x$season))
+  if (length(scovs)) cat("  season covariates:     ", paste(scovs, collapse = ", "), "\n")
   invisible(x)
 }
 
@@ -304,6 +333,70 @@ print.fp_data <- function(x, ...) {
   sort(unique(c(a, v)))
 }
 
+# Seasons that are dates: the missing dates between the first and the last
+# are added, in steps of the shortest interval, so that each transition
+# spans the same time. Attribute "step": that interval in days (NULL when
+# the seasons are not dates).
+.fill_seasons <- function(lv) {
+  d <- .season_dates(lv)
+  gaps <- if (is.numeric(lv)) diff(lv) else numeric(0)
+  numeric_gaps <- length(gaps) > 1 && diff(range(gaps)) > 1e-8 * max(abs(gaps))
+  if (is.null(d) || length(d) < 2) {
+    if (numeric_gaps) {
+      .design_warning("Consecutive seasons are unequally spaced (", paste(utils::head(
+        unique(gaps), 3), collapse = ", "), "); each counts as one transition.")
+    }
+    return(lv)
+  }
+  dn <- as.numeric(d)
+  step <- min(diff(dn))
+  if (any((dn - dn[1]) %% step != 0)) {
+    .design_warning("The season dates are not evenly spaced by their shortest ",
+                    "interval (", step, " day(s)); each pair of consecutive ",
+                    "seasons counts as one transition, whatever its length.")
+    return(lv)
+  }
+  full <- seq(d[1], d[length(d)], by = step)
+  out <- if (inherits(lv, "Date")) full else format(full, attr(d, "format"))
+  structure(out, step = step)
+}
+
+# the seasons as dates (Date, or text as YYYY-MM-DD or YYYYMMDD), with the
+# text format as attribute; NULL if they are not dates
+.season_dates <- function(lv) {
+  if (inherits(lv, "Date")) return(structure(lv, format = NULL))
+  if (!is.character(lv)) return(NULL)
+  fmt <- if (all(grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", lv))) "%Y-%m-%d" else
+    if (all(grepl("^[0-9]{8}$", lv))) "%Y%m%d" else return(NULL)
+  d <- as.Date(lv, format = fmt)
+  if (anyNA(d)) return(NULL)
+  structure(d, format = fmt)
+}
+
+.check_season_covs <- function(season_covs, season, seasons, sites, site) {
+  if (is.null(season)) {
+    stop("`season_covs` needs `season`.", call. = FALSE)
+  }
+  .check_df(season_covs, "season_covs", season)
+  keys <- intersect(c(site, season), names(season_covs))
+  if (anyDuplicated(season_covs[keys])) {
+    stop("`season_covs` must have one row per ", paste(keys, collapse = " and "),
+         ".", call. = FALSE)
+  }
+  bad <- season_covs[[season]][is.na(.season_index(season_covs, season, seasons))]
+  if (length(bad)) {
+    stop("Seasons in `season_covs` are not seasons of the data (e.g. ",
+         paste(utils::head(bad, 3), collapse = ", "), ").", call. = FALSE)
+  }
+  if (site %in% keys) .check_sites_known(season_covs[[site]], sites[[site]], "season_covs", site)
+  invisible(TRUE)
+}
+
+.design_warning <- function(...) {
+  warning(structure(class = c("crywolf_design_warning", "warning", "condition"),
+                    list(message = paste0(...), call = NULL)))
+}
+
 # index of the season of each row of a table; numbers and dates are matched
 # by value, factor levels and text as text
 .season_index <- function(df, season, seasons) {
@@ -325,11 +418,7 @@ print.fp_data <- function(x, ...) {
 }
 
 .warn_seasons <- function(auto, verified, confirmed, season, seasons) {
-  warn <- function(...) {
-    msg <- paste0(...)
-    warning(structure(class = c("crywolf_design_warning", "warning", "condition"),
-                      list(message = msg, call = NULL)))
-  }
+  warn <- .design_warning
   nt <- length(seasons)
   t_auto <- .season_index(auto, season, seasons)
   t_ver <- if (is.null(verified)) integer(0) else .season_index(verified, season, seasons)

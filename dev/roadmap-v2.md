@@ -264,6 +264,41 @@ unidade, então o passo 3 só mexe em R. Com uma temporada, a log-densidade
 é igual à do `fp_occu()` a ~3e-14 (`dev/check-dyn-one-season.R`), e o
 `log_lik` também (`test-fp_occu_dyn.R`). Com várias temporadas, a
 verossimilhança em R (`.dyn_loglik()`) é igual ao `log_lik` do Stan.
+PR #8.
+
+**01/11/2026, decidido com o Diogo (pedido do sheepdog):** temporadas que
+são datas (`Date`, ou texto `YYYY-MM-DD`/`YYYYMMDD`, como `night` e
+`recording_date` do export) são preenchidas pelo `fp_data()`. As datas que
+faltam entre a primeira e a última entram como temporadas sem dados, no
+passo do menor intervalo. Assim cada transição vale um passo (uma noite),
+mesmo em noites em que nenhum sítio gravou. Gravações em dias alternados
+por sítio já eram tratadas pela grade sítio × temporada. Foi descartada a
+alternativa de transição dependente do intervalo (φ^Δt, offset log Δt):
+ela complica as fórmulas sem ganho de interpretação. Número e factor
+continuam como vêm (consecutivas = uma transição), com aviso se o
+espaçamento for desigual. O esquema do sheepdog não muda.
+
+**Passo 3 feito em 01/11/2026 (PR 2):** `fp_occu_dyn(psi1, col, ext, ...)`
+exportado como experimental. As covariáveis de temporada entram por
+`fp_data(season_covs = )`, por temporada ou por sítio e temporada, e
+valem também para `det` e `fp`. As covariáveis de uma transição são as da
+temporada em que ela entra. Os nomes são `psi1_*`, `col_*` e `ext_*`
+(`crywolf-output`). Há `print()`, `summary()` e `as_draws_df()`. As
+quantidades `p11_ref`, `p10_ref`, `p10_bar` e `p_verified` são as do
+`fp_occu()`, com `p10_bar` calculado sobre sítio-temporadas.
+
+**Divisão dos passos seguintes em PRs (aprovada em 01/11/2026):**
+PR 3, passo 4 (FFBS, `fp_sites()` por temporada, `simulate()`/`fp_ppc()` e
+simulador dinâmico); PR 4, passo 5; PR 5, passos 6 e 7 (rodadas na AWS);
+PR 6, passo 8. O escopo de cada um é confirmado com o Diogo antes.
+
+**Estimativa para os passos 6 e 7 na AWS (01/11/2026).** No Mac, com 4
+cadeias de 1000+1000 em 1 núcleo, um ajuste leva 32 s com 100 sítios × 5
+temporadas × 4 ocasiões e 87 s com 200 × 10 × 4, recuperando os valores
+simulados. Com o fator de 1,14 da c7a medido no fpcalib, ~7.300 ajustes
+(identificação ~4.500, recuperação ~1.200, SBC ~1.000, `fp_calibrate()`
+~600) somam ~170 núcleo-hora. Isso dá ~1 h por lote numa c7a.48xlarge
+spot, ~US$ 3 a 5 no total, com teto de US$ 10 a 15 se o desenho crescer.
 
 ### Riscos
 

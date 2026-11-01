@@ -48,10 +48,7 @@ callr::r(
     # compiles the model on first use and reports any error then
     tryCatch(
       instantiate::stan_package_compile(
-        # the dynamic model is compiled on first use until fp_occu_dyn()
-        # is exported
-        models = grep("fp_occu_dyn", instantiate::stan_package_model_files(path = bin_stan),
-                      value = TRUE, invert = TRUE),
+        models = instantiate::stan_package_model_files(path = bin_stan),
         cpp_options = list(stan_threads = TRUE)
       ),
       error = function(e) {
