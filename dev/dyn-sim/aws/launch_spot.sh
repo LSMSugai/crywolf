@@ -10,12 +10,14 @@
 # max_hours: hard limit after which the instance terminates (default 12).
 # reps: sets REPS for the script (default: the script's own default).
 # <instance_profile>: IAM instance profile with read/write access to the prefix.
+# JOBS (environment, optional): job folder of the script (default
+#   dev/dyn-sim/jobs; dev/dyn-kfold/jobs for dev/dyn-kfold/run_kfold.R).
 # AZ (environment, optional): availability zone, e.g. us-east-1c, to pick the
 #   cheapest spot price; otherwise EC2 chooses.
 set -euo pipefail
 BUCKET=$1; RUN=$2; SCRIPT=$3; TYPE=$4; WORKERS=$5; ROLE=$6; MAX_HOURS=${7:-12}; REPS=${8:-}
 cd "$(git rev-parse --show-toplevel)"
-JOBS=dev/dyn-sim/jobs
+JOBS=${JOBS:-dev/dyn-sim/jobs}
 aws s3 ls "s3://${BUCKET}/fpcalib/runs/${RUN}/code.tar.gz" >/dev/null || \
   { echo "No code for run ${RUN}; run dev/dyn-sim/aws/pack_code.sh ${BUCKET} ${RUN} first." >&2; exit 1; }
 UD=$(mktemp)
