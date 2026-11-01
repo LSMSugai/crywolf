@@ -16,3 +16,4 @@
 ^cran-comments\.md$
 ^AI interaction log\.md$
 ^src/stan/fp_occu_dyn$
+^codecov\.yml$
