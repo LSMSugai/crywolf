@@ -9,6 +9,16 @@
   all its options. The states are summed out by the forward algorithm.
   It has `print()`, `summary()` and `as_draws_df()` methods; its output
   names (`psi1_*`, `col_*`, `ext_*`) are documented in `crywolf-output`.
+* With a `fp_occu_dyn()` fit, `fp_sites()` returns one row per site and
+  season, with the occupancy expected from the covariates (`psi`) and the
+  probability that the site-season is occupied given all the data of the
+  site (`occupied`, by forward-backward over seasons). `fp_ppc()` checks
+  detections per site-season, with the latent states drawn jointly over
+  seasons by forward filtering, backward sampling, and `simulate()` draws
+  new states and detections with the structure of the data.
+* New `simulate_fp_dyn()`, experimental: simulates data for
+  `fp_occu_dyn()`, with colonization on a season covariate and initial
+  occupancy and extinction on a site covariate.
 * `fp_data()` gains `season_covs`, covariates of each season or of each
   site and season.
 * `fp_data()` fills in seasons that are dates (`Date`, or text as

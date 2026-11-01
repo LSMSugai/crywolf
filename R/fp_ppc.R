@@ -5,7 +5,10 @@
 #' Bayesian p-value. Detections are summed per site, so the check asks whether
 #' the model reproduces how many detections each site gets.
 #'
-#' @param object An `fp_occu` object.
+#' @param object An `fp_occu` object, or an `fp_occu_dyn` object
+#'   (experimental), for which detections are summed per site and season
+#'   and the latent states are drawn jointly over seasons by forward
+#'   filtering, backward sampling.
 #' @param method Which data to check: `"automated"` (default; every site) or
 #'   `"verified"` (verified sites only).
 #' @param fit_stat Discrepancy statistic: `"freeman-tukey"` (default),
@@ -51,7 +54,8 @@
 #'   per site), `yrep` (matrix of replicated detections, draws in rows and
 #'   sites in columns), `fit_obs` and `fit_rep` (discrepancy of the observed and
 #'   replicated data, one value per draw), `p_value`, `site` (the site
-#'   identifiers of the columns), `method`, and `fit_stat`.
+#'   identifiers of the columns), `method`, and `fit_stat`; for a dynamic
+#'   model, also `season`, the season of each column.
 #' @seealso [fp_occu()], [fp_calibrate()]
 #' @export
 #' @examples
@@ -65,8 +69,9 @@
 fp_ppc <- function(object, method = c("automated", "verified"),
                    fit_stat = c("freeman-tukey", "chi-squared"),
                    ndraws = 1000, seed = NULL) {
-  if (!inherits(object, "fp_occu")) {
-    stop("`object` must be an `fp_occu` fit.", call. = FALSE)
+  dyn <- inherits(object, "fp_occu_dyn")
+  if (!inherits(object, "fp_occu") && !dyn) {
+    stop("`object` must be an `fp_occu` or `fp_occu_dyn` fit.", call. = FALSE)
   }
   method <- match.arg(method)
   fit_stat <- match.arg(fit_stat)
@@ -75,13 +80,23 @@ fp_ppc <- function(object, method = c("automated", "verified"),
     stop("The data have no verified occasions.", call. = FALSE)
   }
   if (!is.null(seed)) .set_seed(seed)
-  pars <- .ppc_pars(object$fit, sd, ndraws)
-  res <- .ppc_core(sd, pars, method, fit_stat)
-  site_ids <- object$data$sites[[object$data$site]]
+  if (dyn) {
+    # site-seasons, with the states drawn over seasons
+    fb <- .dyn_ffbs(sd, .dyn_pars(object$fit, sd, ndraws))
+    res <- .ppc_core(fb$em$sd_u, fb$em$pars_u, method, fit_stat, z = fb$z)
+    units <- .dyn_units(object$data)$sites
+    site_ids <- units[[object$data$site]]
+  } else {
+    pars <- .ppc_pars(object$fit, sd, ndraws)
+    res <- .ppc_core(sd, pars, method, fit_stat)
+    site_ids <- object$data$sites[[object$data$site]]
+  }
   structure(
     list(y = res$y, yrep = res$yrep, fit_obs = res$fit_obs,
          fit_rep = res$fit_rep, p_value = mean(res$fit_rep > res$fit_obs),
-         site = site_ids[res$keep], method = method, fit_stat = fit_stat),
+         site = site_ids[res$keep],
+         season = if (dyn) units[[object$data$season]][res$keep],
+         method = method, fit_stat = fit_stat),
     class = "fp_ppc"
   )
 }
@@ -155,15 +170,18 @@ print.fp_ppc <- function(x, digits = 3, ...) {
 # random numbers (for loo()); with emissions_only = TRUE, only the
 # log-likelihood of each site's observations given that it is occupied (occ)
 # and given that it is not (unocc), without the occupancy probability (for
-# the units of the dynamic model)
+# the units of the dynamic model); with z (S draws x nsite), the latent
+# states are those given, not drawn from their conditional posterior (the
+# states of the dynamic model, from .dyn_ffbs()), and pz and ll are NULL
 .ppc_core <- function(sd, pars, method, fit_stat, ll_only = FALSE,
-                      emissions_only = FALSE) {
+                      emissions_only = FALSE, z = NULL) {
   S <- nrow(pars$beta)
   nsite <- sd$nsite
   rows <- function(v) rep(v, each = S)   # recycle a per-column vector over draws
 
   # linear predictors
-  lpsi <- if (!emissions_only) pars$beta %*% t(sd$X)     # S x nsite
+  use_psi <- !emissions_only && is.null(z)
+  lpsi <- if (use_psi) pars$beta %*% t(sd$X)             # S x nsite
   lp11 <- pars$alpha %*% t(sd$Z)                         # S x N2
   if (sd$estimate_re == 1) lp11 <- lp11 + pars$u[, sd$rec2, drop = FALSE]
   if (!is.null(pars$d_det)) lp11 <- lp11 + pars$d_det[, sd$site2, drop = FALSE]
@@ -188,7 +206,7 @@ print.fp_ppc <- function(x, digits = 3, ...) {
     l11 <- rows(y2) * stats::plogis(lp11, log.p = TRUE) +
       rows(f2) * stats::plogis(-lp11, log.p = TRUE)
   }
-  occ <- (if (emissions_only) 0 else stats::plogis(lpsi, log.p = TRUE)) +
+  occ <- (if (use_psi) stats::plogis(lpsi, log.p = TRUE) else 0) +
     .site_sum(l11, sd$site2, nsite)
   if (sd$N1 > 0) {
     eta1 <- .eta_verified(sd, pars)                      # S x N1
@@ -196,7 +214,7 @@ print.fp_ppc <- function(x, digits = 3, ...) {
       rows(1 - sd$y1) * stats::plogis(-eta1, log.p = TRUE)
     occ <- occ + .site_sum(l1, sd$site1, nsite)
   }
-  unocc <- if (emissions_only) matrix(0, S, nsite) else stats::plogis(-lpsi, log.p = TRUE)
+  unocc <- if (use_psi) stats::plogis(-lpsi, log.p = TRUE) else matrix(0, S, nsite)
   if (fp) {
     l10 <- rows(y2) * stats::plogis(lp10_row, log.p = TRUE) +
       rows(f2) * stats::plogis(-lp10_row, log.p = TRUE)
@@ -223,14 +241,17 @@ print.fp_ppc <- function(x, digits = 3, ...) {
     unocc[, unique(sd$site3[v3 >= 2])] <- -Inf
   }
   if (emissions_only) return(list(occ = occ, unocc = unocc))
-  # marginal log-likelihood per site (the log_lik of the Stan program)
-  m <- pmax(occ, unocc)
-  ll <- m + log(exp(occ - m) + exp(unocc - m))
-  ll[, sd$known_present == 1] <- occ[, sd$known_present == 1]
-  if (ll_only) return(list(ll = ll))
-  pz <- stats::plogis(occ - unocc)
-  pz[, sd$known_present == 1] <- 1
-  z <- matrix(stats::rbinom(S * nsite, 1, pz), S, nsite)
+  ll <- pz <- NULL
+  if (is.null(z)) {
+    # marginal log-likelihood per site (the log_lik of the Stan program)
+    m <- pmax(occ, unocc)
+    ll <- m + log(exp(occ - m) + exp(unocc - m))
+    ll[, sd$known_present == 1] <- occ[, sd$known_present == 1]
+    if (ll_only) return(list(ll = ll))
+    pz <- stats::plogis(occ - unocc)
+    pz[, sd$known_present == 1] <- 1
+    z <- matrix(stats::rbinom(S * nsite, 1, pz), S, nsite)
+  }
 
   if (method == "automated") {
     zr <- z[, sd$site2, drop = FALSE]

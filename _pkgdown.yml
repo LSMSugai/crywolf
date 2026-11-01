@@ -58,11 +58,13 @@ reference:
     desc: Simulate false-positive regimes and check interval calibration for a design.
     contents:
       - simulate_fp
+      - simulate_fp_dyn
       - fp_calibrate
       - fp_verification_curve
       - fp_calibrate_fit
       - fp_sbc
       - simulate.fp_occu
+      - simulate.fp_occu_dyn
       - plot.fp_calibration
   - title: Example data
     desc: Passive acoustic monitoring of the Common Pauraque in the Pantanal.

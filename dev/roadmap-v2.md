@@ -287,6 +287,18 @@ temporada em que ela entra. Os nomes são `psi1_*`, `col_*` e `ext_*`
 quantidades `p11_ref`, `p10_ref`, `p10_bar` e `p_verified` são as do
 `fp_occu()`, com `p10_bar` calculado sobre sítio-temporadas.
 
+**Passo 4 feito em 01/11/2026 (PR 3):** FFBS em R (`.dyn_ffbs()`), com a
+probabilidade suavizada de cada sítio-temporada pelo forward-backward e uma
+amostra conjunta dos estados por draw. `fp_sites()` com modelo dinâmico dá
+uma linha por sítio-temporada (`psi` pelas covariáveis, `occupied` dados
+todos os dados do sítio). `fp_ppc()` soma detecções por sítio-temporada,
+com os estados do FFBS. `simulate()` sorteia estados novos por
+colonização e extinção. Simulador `simulate_fp_dyn()` experimental. Em
+casos pequenos, o FFBS bate com a enumeração das sequências de estados
+(1e-10) e as frequências amostradas com as probabilidades exatas; um
+ajuste curto (150 sítios × 4 temporadas) recupera todos os parâmetros
+dentro dos intervalos de 95%. PR #8 com merge no main em 01/11/2026.
+
 **Divisão dos passos seguintes em PRs (aprovada em 01/11/2026):**
 PR 3, passo 4 (FFBS, `fp_sites()` por temporada, `simulate()`/`fp_ppc()` e
 simulador dinâmico); PR 4, passo 5; PR 5, passos 6 e 7 (rodadas na AWS);

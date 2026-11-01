@@ -10,7 +10,8 @@ fp_sites(object, prob = 0.95, ndraws = NULL, seed = NULL)
 \method{plot}{fp_sites}(x, coords = NULL, ...)
 }
 \arguments{
-\item{object}{An \code{fp_occu} object.}
+\item{object}{An \code{fp_occu} object, or an \code{fp_occu_dyn} object
+(experimental; see Details).}
 
 \item{prob}{Width of the credible intervals.}
 
@@ -28,7 +29,8 @@ the sites are ranked by it.}
 \item{...}{Unused.}
 }
 \value{
-A data frame of class \code{fp_sites}, one row per site, with the
+A data frame of class \code{fp_sites}, one row per site (per
+site-season for a dynamic model), with the
 site columns of the data, \code{psi} (occupancy probability, with \code{psi_lower}
 and \code{psi_upper}), \code{occupied} (posterior probability that the site is
 occupied given its data), \code{occupied_lower} and \code{occupied_upper}
@@ -46,6 +48,16 @@ probability that it is occupied given its covariates and its data
 (detections and verification), and its false-positive rate. The second
 is the quantity to map or rank sites by: a site with automated detections
 but a high false-positive rate can still be unlikely to be occupied.
+}
+\details{
+For a dynamic model (\code{\link[=fp_occu_dyn]{fp_occu_dyn()}}) the result has one row per site and
+season, with the site and season columns and the season covariates.
+\code{psi} is then the probability of occupancy in that season given the
+covariates alone (initial occupancy carried forward by colonization and
+extinction), and \code{occupied} the probability that the site-season is
+occupied given all the data of the site, in every season (computed by the
+forward-backward algorithm for each posterior draw). \code{detections},
+\code{verified} and \code{p10} refer to the site-season.
 }
 \examples{
 \dontrun{

@@ -1,6 +1,6 @@
-# Dynamic model, first steps (dev/roadmap-v2.md): the season column of
-# fp_data(), and the likelihood of fp_occu_dyn.stan, checked against
-# fp_occu() with one season and against its R version with several.
+# Dynamic model (dev/roadmap-v2.md): the season column of fp_data(), the
+# likelihood of fp_occu_dyn.stan, checked against fp_occu() with one season
+# and against its R version with several, and the latent states.
 
 test_that("fp_data() orders seasons and reports them", {
   sites <- data.frame(site = 1:3)
@@ -273,4 +273,115 @@ test_that("fp_occu_dyn() names its parameters and prints", {
   out <- capture.output(suppressWarnings(print(m)))
   expect_match(out, "colonization: +~rain", all = FALSE)
   expect_match(out, "60 sites over 3 seasons", all = FALSE)
+})
+
+# small data for the latent states: site 1 has no data in season 2, site 3 a
+# verified detection in season 2, so its state there is known
+ffbs_case <- function() {
+  set.seed(4)
+  sites <- data.frame(site = 1:4, x = c(-1, 0, 0.5, 1))
+  auto <- expand.grid(site = 1:4, t = 1:3, occasion = 1:3)
+  auto <- auto[!(auto$site == 1 & auto$t == 2), ]
+  auto$y <- stats::rbinom(nrow(auto), 1, 0.4)
+  ver <- data.frame(site = 3, y = 1, t = 2)
+  d <- suppressWarnings(fp_data(auto, sites, verified = ver, season = "t"))
+  sd <- crywolf:::.build_dyn_stan_data(d, ~ 1, ~ x, ~ 1, ~ 1, ~ 1, FALSE,
+                                       fp_priors())$stan_data
+  pars <- list(beta = matrix(c(0.2, -0.5), 2), alpha = matrix(c(0.4, 1), 2),
+               delta0 = c(1, 1.5), delta_s = matrix(0, 2, 0),
+               gamma0 = c(-2, -1.5), gamma_fp = matrix(0, 2, 0),
+               beta_col = cbind(c(-1, -0.5), c(0.8, -0.3)),
+               beta_ext = matrix(c(-1.2, -0.4), 2))
+  list(sd = sd, pars = pars)
+}
+
+# joint posterior of the state sequences of each site, by enumerating them:
+# a list over draws of nsite x 2^nseason matrices, sequences in the rows of seqs
+enumerate_states <- function(sd, pars, seqs) {
+  em <- crywolf:::.dyn_emissions(sd, pars)
+  nt <- sd$nseason
+  purrr::map(seq_len(nrow(pars$beta)), function(s) {
+    t(vapply(seq_len(sd$nsite), function(i) {
+      k <- (i - 1) * nt + seq_len(nt)
+      col <- stats::plogis(drop(sd$Xcol[k, , drop = FALSE] %*% pars$beta_col[s, ]))
+      ext <- stats::plogis(drop(sd$Xext[k, , drop = FALSE] %*% pars$beta_ext[s, ]))
+      psi <- stats::plogis(sum(sd$X[i, ] * pars$beta[s, ]))
+      lp <- apply(seqs, 1, function(z) {
+        prior <- log(ifelse(z[1] == 1, psi, 1 - psi))
+        for (t in seq_len(nt)[-1]) {
+          p1 <- if (z[t - 1] == 1) 1 - ext[t] else col[t]
+          prior <- prior + log(ifelse(z[t] == 1, p1, 1 - p1))
+        }
+        prior + sum(ifelse(z == 1, em$occ[s, k], em$unocc[s, k]))
+      })
+      exp(lp - max(lp)) / sum(exp(lp - max(lp)))
+    }, numeric(nrow(seqs))))
+  })
+}
+
+test_that("forward-backward and FFBS match the enumeration of state sequences", {
+  cs <- ffbs_case()
+  sd <- cs$sd
+  seqs <- as.matrix(expand.grid(rep(list(0:1), sd$nseason)))
+  post <- enumerate_states(sd, cs$pars, seqs)
+  fb <- crywolf:::.dyn_ffbs(sd, cs$pars)
+  for (s in 1:2) {
+    exact <- post[[s]] %*% seqs   # nsite x nseason
+    expect_equal(fb$pz[s, ], c(t(exact)), tolerance = 1e-10)
+  }
+  # the known state has probability 1
+  expect_equal(fb$pz[, (3 - 1) * sd$nseason + 2], c(1, 1))
+  # sampled sequences: draw 1 repeated many times
+  n <- 20000
+  rep1 <- purrr::map(cs$pars, function(m) {
+    if (is.null(dim(m))) rep(m[1], n) else m[rep(1, n), , drop = FALSE]
+  })
+  set.seed(1)
+  z <- crywolf:::.dyn_ffbs(sd, rep1)$z
+  nt <- sd$nseason
+  for (i in seq_len(sd$nsite)) {
+    code <- z[, (i - 1) * nt + seq_len(nt)] %*% 2^(seq_len(nt) - 1)
+    freq <- tabulate(code + 1, nbins = 2^nt) / n
+    expect_lt(max(abs(freq - post[[1]][i, ])), 0.015,
+              label = paste("site", i, "sampled vs exact sequence frequencies"))
+  }
+})
+
+test_that("fp_sites(), fp_ppc() and simulate() work with the dynamic model", {
+  skip_if_no_cmdstan()
+  s <- simulate_fp_dyn(nsite = 150, nseason = 4, b_col = 1, b_ext = -1, seed = 2)
+  m <- suppressWarnings(fp_occu_dyn(s$data, psi1 = ~ x, col = ~ rain, ext = ~ x,
+                                    random_recorder = FALSE, chains = 2,
+                                    iter_warmup = 400, iter_sampling = 400,
+                                    threads_per_chain = 1, seed = 1, refresh = 0,
+                                    show_messages = FALSE))
+  # recovery: the generating values within the 95% intervals
+  dr <- as_draws_df(m)
+  for (p in names(s$truth$pars)) {
+    ci <- stats::quantile(dr[[p]], c(0.025, 0.975))
+    expect_true(s$truth$pars[[p]] > ci[1] && s$truth$pars[[p]] < ci[2],
+                label = paste(p, "within its 95% interval"))
+  }
+
+  st <- fp_sites(m, ndraws = 200, seed = 1)
+  expect_s3_class(st, "fp_sites")
+  expect_equal(nrow(st), 150 * 4)
+  expect_equal(st$season, rep(1:4, 150))
+  expect_true(all(c("x", "rain", "psi", "occupied", "p10") %in% names(st)))
+  expect_true(all(st$occupied[st$verified] > 1 - 1e-12))
+  expect_gt(cor(st$occupied, c(t(s$truth$z))), 0.8)
+
+  pp <- fp_ppc(m, ndraws = 100, seed = 1)
+  expect_s3_class(pp, "fp_ppc")
+  expect_length(pp$season, length(pp$site))
+  expect_equal(ncol(pp$yrep), length(pp$site))
+  expect_true(pp$p_value > 0 && pp$p_value < 1)
+
+  new <- simulate(m, nsim = 2, seed = 1)
+  expect_length(new, 2)
+  expect_s3_class(new[[1]]$data, "fp_data")
+  expect_equal(dim(new[[1]]$truth$z), c(150, 4))
+  expect_setequal(names(new[[1]]$truth$pars), names(s$truth$pars))
+  expect_equal(nrow(new[[1]]$data$auto), nrow(s$data$auto))
+  expect_equal(new[[1]]$data$season_covs, s$data$season_covs)
 })

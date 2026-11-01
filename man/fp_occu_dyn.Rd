@@ -67,8 +67,9 @@ An object of class \code{fp_occu_dyn}, a list with \code{fit}, \code{draws}
 (readable names: see \link{crywolf-output}), \code{stan_data}, \code{formulas}
 (\code{psi1}, \code{col}, \code{ext}, \code{det}, \code{fp}, \code{ver}), \code{markov}, \code{design}, \code{data},
 \code{random_recorder}, \code{random_fp}, \code{random_det}, \code{priors}, \code{sampler},
-\code{diagnostics} and \code{call}. Its methods are \code{print()}, \code{summary()} and
-\code{as_draws_df()}.
+\code{diagnostics} and \code{call}. Its methods are \code{print()}, \code{summary()},
+\code{as_draws_df()} and \code{simulate()}; \code{\link[=fp_sites]{fp_sites()}} gives the occupancy of
+each site-season and \code{\link[=fp_ppc]{fp_ppc()}} checks the fit.
 
 \code{summary()} returns an object of class \code{summary.fp_occu}, as for
 \code{\link[=fp_occu]{fp_occu()}}.
@@ -105,17 +106,13 @@ positives.
 }
 \examples{
 \dontrun{
-# three seasons of two occasions each, from a single-season simulation
-sim <- simulate_fp(nsite = 150, nocc = 6, frac_verified = 0.3, seed = 1)
-d <- sim$data
-d$auto$season <- ceiling(d$auto$occasion / 2)
-d$verified$season <- ceiling(d$verified$occasion * 3 / max(d$verified$occasion))
-dd <- fp_data(d$auto, d$sites, verified = d$verified, season = "season")
-m <- fp_occu_dyn(dd, psi1 = ~ x, col = ~ 1, ext = ~ 1, fp = ~ 1,
+s <- simulate_fp_dyn(nsite = 150, nseason = 4, b_col = 1, b_ext = -1, seed = 1)
+m <- fp_occu_dyn(s$data, psi1 = ~ x, col = ~ rain, ext = ~ x,
                  random_recorder = FALSE)
 m
+head(fp_sites(m))   # one row per site-season
 }
 }
 \seealso{
-\code{\link[=fp_data]{fp_data()}}, \code{\link[=fp_occu]{fp_occu()}}, \link{crywolf-output}
+\code{\link[=fp_data]{fp_data()}}, \code{\link[=fp_occu]{fp_occu()}}, \code{\link[=simulate_fp_dyn]{simulate_fp_dyn()}}, \link{crywolf-output}
 }
