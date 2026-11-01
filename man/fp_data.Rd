@@ -11,7 +11,8 @@ fp_data(
   site = "site",
   y = "y",
   recorder = NULL,
-  confirmed = NULL
+  confirmed = NULL,
+  season = NULL
 )
 }
 \arguments{
@@ -45,13 +46,24 @@ Chambert et al. 2015). Use \code{NA} in both for occasions that were not
 checked. All observations of a checked occasion must have been checked,
 so an occasion with a detection has at least one confirmed observation,
 and one without has none. See Details of \code{\link[=fp_occu]{fp_occu()}}.}
+
+\item{season}{Optional name of a column of \code{auto} (and of \code{verified}, if
+given) holding the season, or primary period, of each occasion, for the
+dynamic model. Seasons are ordered by the levels of a factor, and
+otherwise by sorting their values, so numbers, dates and ISO dates as
+text (such as \code{night} or \code{recording_date} of a 'sheepdog' export) all
+work. Consecutive seasons are treated as one transition apart, even if
+time between them is missing. A site without data in a season
+contributes to that season only through the transitions of its
+occupancy state. \code{\link[=fp_occu]{fp_occu()}} ignores this column.}
 }
 \value{
 An object of class \code{fp_data}: a list with the tables \code{auto},
 \code{verified} and \code{sites} (rows with a missing detection dropped), the
-column names \code{site}, \code{y}, \code{recorder} and \code{confirmed}, and the vector
-\code{known_present}, which flags sites with at least one verified detection
-or confirmed true observation.
+column names \code{site}, \code{y}, \code{recorder}, \code{confirmed} and \code{season}, the
+vector \code{known_present}, which flags sites with at least one verified
+detection or confirmed true observation, and, with \code{season}, the
+seasons in time order in \code{seasons}.
 }
 \description{
 Collects the automated detections, the verified detections, and the site
@@ -67,7 +79,10 @@ no automated occasion (often a failed join of \code{auto} and \code{sites}), ver
 unequal automated effort among sites (ten times or more), automated
 occasions that are all detections or all non-detections, verified data
 without any detection, and confirmed occasions without any false
-observation.
+observation. With \code{season}, it also warns about seasons without data at
+any site (unused levels of a factor) and about seasons without verified
+or confirmed data, in which colonization and extinction are hard to tell
+from false positives.
 \code{\link[=fp_aggregate]{fp_aggregate()}} builds \code{auto} from classifier output.
 }
 \examples{

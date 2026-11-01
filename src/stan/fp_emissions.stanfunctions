@@ -1,0 +1,191 @@
+// Emissions of the false-positive occupancy model: the log-likelihood of
+// the observations of each unit (a site in fp_occu.stan, a site-season in
+// fp_occu_dyn.stan) given that it is occupied and given that it is
+// unoccupied. Shared by both programs through #include; the occupancy
+// process that combines them lives in each program.
+  // Log-likelihood of the observations of sites a to b given that each is
+  // occupied (first vector) and given that it is unoccupied (second). The
+  // automated (and confirmed) rows of these sites are contiguous. Called
+  // through unit_emissions(), which takes the data grouped in tuples.
+  tuple(vector, vector) emissions_sites(int a, int b, matrix Z, vector alpha,
+                      real gamma0, matrix Xfp, vector gamma_fp, vector e_fp,
+                      vector u, vector d_det, array[] int rec2, int estimate_re,
+                      int estimate_fp, int Kfp,
+                      vector y2v, vector n2v, array[] int site2,
+                      array[] int start2, array[] int len2, array[] int any_det2,
+                      vector n1v, vector s1v, real delta0, int obs_confirm,
+                      array[] int v3, array[] int site3, matrix Z3,
+                      array[] int rec3, array[] int start3, array[] int len3,
+                      vector Ysite, vector Nsite, int use_glm, matrix Z_slopes,
+                      array[] int y2, array[] int n2, vector lchoose_site,
+                      int rec_by_site, array[] int rec_site,
+                      int Kver_s, matrix X1s, vector delta_s, vector y1v,
+                      array[] int start1, array[] int len1,
+                      int fp_by_row, matrix Xfp2, matrix Xfp3) {
+    int ns = b - a + 1;
+    vector[ns] lp10 = rep_vector(gamma0, ns);
+    if (Kfp > 0 && fp_by_row == 0) lp10 += Xfp[a:b] * gamma_fp;
+    lp10 += e_fp[a:b];
+    vector[ns] occ = rep_vector(0, ns);
+    vector[ns] unocc = rep_vector(0, ns);
+
+    // unoccupied branch: the false-positive rate is constant within a site,
+    // so the automated rows of a site collapse into its totals of occasions
+    // (Nsite) and detections (Ysite); log1m_inv_logit(x) = -log1p_exp(x)
+    vector[ns] log1p_exp_lp10;
+    int r0 = start2[a];
+    int nr = start2[b] + len2[b] - r0;
+    // with occasion-level false-positive covariates, the rate of each row
+    vector[fp_by_row == 1 ? nr : 0] log1p_exp_lp10_row;
+    if (estimate_fp == 1 && fp_by_row == 0) {
+      log1p_exp_lp10 = log1p_exp(lp10);
+      unocc = Ysite[a:b] .* lp10 - Nsite[a:b] .* log1p_exp_lp10;
+    } else if (estimate_fp == 1 && nr > 0) {
+      int r1 = r0 + nr - 1;
+      array[nr] int loc;
+      for (k in 1:nr) loc[k] = site2[r0 + k - 1] - a + 1;
+      vector[nr] lp10_row = lp10[loc] + Xfp2[r0:r1] * gamma_fp;
+      log1p_exp_lp10_row = log1p_exp(lp10_row);
+      vector[nr] l10 = y2v[r0:r1] .* lp10_row - n2v[r0:r1] .* log1p_exp_lp10_row;
+      for (i in 1:ns) {
+        int s = a + i - 1;
+        if (len2[s] > 0) unocc[i] = sum(segment(l10, start2[s] - r0 + 1, len2[s]));
+      }
+    }
+
+    // occupied branch, automated occasions
+    if (nr > 0 && use_glm == 1) {
+      // one GLM call per site: the product Z * alpha, the binomial
+      // log-likelihood and its gradient are computed in C++ without
+      // intermediate autodiff variables; lchoose_site removes the binomial
+      // constant. When the recorder is constant within sites the intercept
+      // is a scalar, which avoids one autodiff variable per row (1.6 times
+      // faster per gradient on the curiango data than the vector form)
+      vector[rows(alpha) - 1] slopes = alpha[2:rows(alpha)];
+      for (i in 1:ns) {
+        int s = a + i - 1;
+        if (len2[s] > 0) {
+          int q0 = start2[s];
+          int q1 = q0 + len2[s] - 1;
+          if (estimate_re == 1 && rec_by_site == 0) {
+            occ[i] = binomial_logit_glm_lpmf(y2[q0:q1] | n2[q0:q1], Z_slopes[q0:q1],
+                                             alpha[1] + d_det[s] + u[rec2[q0:q1]], slopes)
+                     - lchoose_site[s];
+          } else {
+            real intercept = d_det[s] + (estimate_re == 1 ? alpha[1] + u[rec_site[s]] : alpha[1]);
+            occ[i] = binomial_logit_glm_lpmf(y2[q0:q1] | n2[q0:q1], Z_slopes[q0:q1],
+                                             intercept, slopes) - lchoose_site[s];
+          }
+        }
+      }
+    } else if (nr > 0) {
+      // vectorized rows; log_inv_logit(x) = x - log1p_exp(x)
+      int r1 = r0 + nr - 1;
+      vector[nr] y = y2v[r0:r1];
+      vector[nr] n = n2v[r0:r1];
+      vector[nr] lp11 = Z[r0:r1] * alpha;
+      if (estimate_re == 1) lp11 += u[rec2[r0:r1]];
+      lp11 += d_det[site2[r0:r1]];
+      vector[nr] l11;
+      if (obs_confirm == 1) {
+        // log(1 - p11) = log(1 - s1) + log(1 - s0)
+        vector[nr] lq11;
+        if (fp_by_row == 1) {
+          lq11 = -log1p_exp(lp11) - log1p_exp_lp10_row;
+        } else {
+          array[nr] int loc;
+          for (k in 1:nr) loc[k] = site2[r0 + k - 1] - a + 1;
+          lq11 = -log1p_exp(lp11) - log1p_exp_lp10[loc];
+        }
+        l11 = y .* log1m_exp(lq11) + (n - y) .* lq11;
+      } else {
+        l11 = y .* lp11 - n .* log1p_exp(lp11);
+      }
+      for (i in 1:ns) {
+        int s = a + i - 1;
+        if (len2[s] > 0) occ[i] = sum(segment(l11, start2[s] - r0 + 1, len2[s]));
+      }
+    }
+    if (estimate_fp == 0) {
+      for (i in 1:ns) if (any_det2[a + i - 1] == 1) unocc[i] = negative_infinity();
+    }
+
+    // verified occasions: counts per site, or rows when the verified method
+    // has covariates (sorted by site, like the automated rows)
+    if (Kver_s == 0) {
+      occ += s1v[a:b] * log_inv_logit(delta0) + (n1v[a:b] - s1v[a:b]) * log1m_inv_logit(delta0);
+    } else {
+      int w0 = start1[a];
+      int nw = start1[b] + len1[b] - w0;
+      if (nw > 0) {
+        int w1 = w0 + nw - 1;
+        vector[nw] eta1 = delta0 + X1s[w0:w1] * delta_s;
+        vector[nw] l1 = y1v[w0:w1] .* eta1 - log1p_exp(eta1);
+        for (i in 1:ns) {
+          int s = a + i - 1;
+          if (len1[s] > 0) occ[i] += sum(segment(l1, start1[s] - w0 + 1, len1[s]));
+        }
+      }
+    }
+
+    // confirmed occasions (observation-confirmation design)
+    if (obs_confirm == 1) {
+      int q0 = start3[a];
+      int nq = start3[b] + len3[b] - q0;
+      if (nq > 0) {
+        int q1 = q0 + nq - 1;
+        vector[nq] lp11_3 = Z3[q0:q1] * alpha;
+        if (estimate_re == 1) lp11_3 += u[rec3[q0:q1]];
+        lp11_3 += d_det[site3[q0:q1]];
+        for (k in 1:nq) {
+          int i = site3[q0 + k - 1] - a + 1;
+          int v = v3[q0 + k - 1];
+          real ls1 = log_inv_logit(lp11_3[k]);
+          real lq1 = log1m_inv_logit(lp11_3[k]);
+          real lp10_k = fp_by_row == 1 ? lp10[i] + Xfp3[q0 + k - 1] * gamma_fp : lp10[i];
+          real ls0 = log_inv_logit(lp10_k);
+          real lq0 = log1m_inv_logit(lp10_k);
+          occ[i] += (v >= 2 ? ls1 : lq1) + (v % 2 == 1 ? ls0 : lq0);
+          unocc[i] += v >= 2 ? negative_infinity() : (v == 1 ? ls0 : lq0);
+        }
+      }
+    }
+
+    return (occ, unocc);
+  }
+
+  // The data of the likelihood grouped in tuples (built at the end of
+  // transformed data). Function arguments are passed by reference, so
+  // handing the fields on to emissions_sites() copies nothing. design.1
+  // (the occupancy design) and verified.3 (known_present) are not used here.
+  tuple(vector, vector) unit_emissions(int a, int b, vector alpha, real gamma0,
+                     vector gamma_fp, vector e_fp, vector u, vector d_det, real delta0,
+                     vector delta_s,
+                     tuple(matrix, matrix, matrix, matrix, matrix) design,
+                     tuple(array[] int, array[] int, array[] int, array[] int,
+                           vector, vector, array[] int, array[] int,
+                           array[] int, array[] int, vector, vector, vector) automated,
+                     tuple(vector, vector, array[] int, matrix, vector,
+                           array[] int, array[] int) verified,
+                     tuple(array[] int, array[] int, array[] int, matrix,
+                           array[] int, array[] int, matrix) confirmed,
+                     array[] int options) {
+    // design: X, Z, Z_slopes, Xfp, Xfp2
+    // automated: y2, n2, site2, rec2, y2v, n2v, start2, len2, any_det2,
+    //            rec_site, Ysite, Nsite, lchoose_site
+    // verified: n1v, s1v, known_present, X1s, y1v, start1, len1
+    // confirmed: v3, site3, rec3, Z3, start3, len3, Xfp3
+    // options: estimate_re, estimate_fp, Kfp, obs_confirm, use_glm,
+    //          rec_by_site, Kver_s, fp_by_row
+    return emissions_sites(a, b, design.2, alpha, gamma0, design.4,
+                        gamma_fp, e_fp, u, d_det, automated.4, options[1], options[2],
+                        options[3], automated.5, automated.6, automated.3,
+                        automated.7, automated.8, automated.9, verified.1,
+                        verified.2, delta0, options[4], confirmed.1,
+                        confirmed.2, confirmed.4, confirmed.3, confirmed.5,
+                        confirmed.6, automated.11, automated.12, options[5],
+                        design.3, automated.1, automated.2, automated.13,
+                        options[6], automated.10, options[7], verified.4,
+                        delta_s, verified.5, verified.6, verified.7, options[8],
+                        design.5, confirmed.7);
+  }

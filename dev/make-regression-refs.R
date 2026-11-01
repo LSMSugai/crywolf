@@ -24,7 +24,7 @@ refs <- purrr::imap(.regression_designs(), function(design, name) {
 attr(refs, "made") <- list(
   date = Sys.Date(), crywolf = as.character(utils::packageVersion("crywolf")),
   cmdstan = cmdstanr::cmdstan_version(), platform = R.version$platform,
-  stan_md5 = unname(tools::md5sum(fp_stan_file())))
+  stan_md5 = crywolf:::.stan_md5())
 dir.create(file.path("tests", "testthat", "fixtures"), showWarnings = FALSE)
 saveRDS(refs, file.path("tests", "testthat", "fixtures", "regression-refs.rds"))
 str(attr(refs, "made"))

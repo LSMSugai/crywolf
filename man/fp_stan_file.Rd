@@ -8,7 +8,9 @@ fp_stan_file()
 }
 \value{
 The path to the Stan file shipped with the package, for users who
-want to read the model or modify a copy of it.
+want to read the model or modify a copy of it. The likelihood of the
+observations of each site is in \code{fp_emissions.stanfunctions}, in the
+same folder, which the program includes.
 }
 \description{
 Path to the Stan program

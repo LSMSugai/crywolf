@@ -25,29 +25,43 @@
 #' fp_compile()
 #' }
 fp_compile <- function(force = FALSE, quiet = TRUE) {
-  if (!force && !is.null(.fp_env$model)) return(invisible(.fp_env$model))
+  .compile_model("fp_occu", force = force, quiet = quiet)
+}
+
+# Compiles (or loads) one of the Stan programs of the package, `fp_occu` or
+# `fp_occu_dyn`; both #include fp_emissions.stanfunctions
+.compile_model <- function(name, force = FALSE, quiet = TRUE) {
+  if (!force && !is.null(.fp_env[[name]])) return(invisible(.fp_env[[name]]))
   .check_cmdstan()
   # the executable compiled when the package was installed from source (if
   # it is missing, stan_package_model() would compile one without threads)
-  exe <- file.path(dirname(fp_stan_file()),
-                   if (.Platform$OS.type == "windows") "fp_occu.exe" else "fp_occu")
+  src <- .stan_file(name)
+  exe <- file.path(dirname(src),
+                   if (.Platform$OS.type == "windows") paste0(name, ".exe") else name)
   mod <- if (!force && file.exists(exe)) {
-    tryCatch(instantiate::stan_package_model(name = "fp_occu", package = "crywolf"),
+    tryCatch(instantiate::stan_package_model(name = name, package = "crywolf"),
              error = function(e) NULL)
   }
   if (is.null(mod) || !.has_threads(mod)) {
     # binary packages (such as those on CRAN), or an installation without a
     # recent enough CmdStan, come without it: compile once into the user cache
-    src <- fp_stan_file()
     dir <- tools::R_user_dir("crywolf", which = "cache")
     dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-    dst <- file.path(dir, "fp_occu.stan")
-    if (!file.exists(dst) || !identical(readLines(src), readLines(dst))) {
-      file.copy(src, dst, overwrite = TRUE)
+    # the program and the functions it includes; a change to either
+    # recompiles
+    files <- c(src, file.path(dirname(src), "fp_emissions.stanfunctions"))
+    changed <- FALSE
+    for (f in files) {
+      dst_f <- file.path(dir, basename(f))
+      if (!file.exists(dst_f) || !identical(readLines(f), readLines(dst_f))) {
+        file.copy(f, dst_f, overwrite = TRUE)
+        changed <- TRUE
+      }
     }
+    dst <- file.path(dir, basename(src))
     threads <- list(stan_threads = TRUE)
     mod <- suppressWarnings(
-      cmdstanr::cmdstan_model(dst, quiet = quiet, force_recompile = force,
+      cmdstanr::cmdstan_model(dst, quiet = quiet, force_recompile = force || changed,
                               cpp_options = threads)
     )
     if (!.has_threads(mod)) {
@@ -55,23 +69,29 @@ fp_compile <- function(force = FALSE, quiet = TRUE) {
                                      cpp_options = threads)
     }
   }
-  .fp_env$model <- mod
+  .fp_env[[name]] <- mod
   invisible(mod)
 }
 
 #' Path to the Stan program
 #'
 #' @return The path to the Stan file shipped with the package, for users who
-#'   want to read the model or modify a copy of it.
+#'   want to read the model or modify a copy of it. The likelihood of the
+#'   observations of each site is in `fp_emissions.stanfunctions`, in the
+#'   same folder, which the program includes.
 #' @export
 #' @examples
 #' fp_stan_file()
 fp_stan_file <- function() {
-  path <- system.file("bin", "stan", "fp_occu.stan", package = "crywolf")
+  .stan_file("fp_occu")
+}
+
+.stan_file <- function(name) {
+  file <- paste0(name, ".stan")
+  path <- system.file("bin", "stan", file, package = "crywolf")
   # under devtools::load_all() the program is still in the sources
   if (!nzchar(path)) {
-    path <- system.file("src", "stan", "fp_occu.stan", package = "crywolf",
-                        mustWork = TRUE)
+    path <- system.file("src", "stan", file, package = "crywolf", mustWork = TRUE)
   }
   path
 }

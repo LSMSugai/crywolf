@@ -152,14 +152,18 @@ print.fp_ppc <- function(x, digits = 3, ...) {
 }
 
 # with ll_only = TRUE, returns only the log-likelihood, without drawing
-# random numbers (for loo())
-.ppc_core <- function(sd, pars, method, fit_stat, ll_only = FALSE) {
+# random numbers (for loo()); with emissions_only = TRUE, only the
+# log-likelihood of each site's observations given that it is occupied (occ)
+# and given that it is not (unocc), without the occupancy probability (for
+# the units of the dynamic model)
+.ppc_core <- function(sd, pars, method, fit_stat, ll_only = FALSE,
+                      emissions_only = FALSE) {
   S <- nrow(pars$beta)
   nsite <- sd$nsite
   rows <- function(v) rep(v, each = S)   # recycle a per-column vector over draws
 
   # linear predictors
-  lpsi <- pars$beta %*% t(sd$X)                          # S x nsite
+  lpsi <- if (!emissions_only) pars$beta %*% t(sd$X)     # S x nsite
   lp11 <- pars$alpha %*% t(sd$Z)                         # S x N2
   if (sd$estimate_re == 1) lp11 <- lp11 + pars$u[, sd$rec2, drop = FALSE]
   if (!is.null(pars$d_det)) lp11 <- lp11 + pars$d_det[, sd$site2, drop = FALSE]
@@ -184,14 +188,15 @@ print.fp_ppc <- function(x, digits = 3, ...) {
     l11 <- rows(y2) * stats::plogis(lp11, log.p = TRUE) +
       rows(f2) * stats::plogis(-lp11, log.p = TRUE)
   }
-  occ <- stats::plogis(lpsi, log.p = TRUE) + .site_sum(l11, sd$site2, nsite)
+  occ <- (if (emissions_only) 0 else stats::plogis(lpsi, log.p = TRUE)) +
+    .site_sum(l11, sd$site2, nsite)
   if (sd$N1 > 0) {
     eta1 <- .eta_verified(sd, pars)                      # S x N1
     l1 <- rows(sd$y1) * stats::plogis(eta1, log.p = TRUE) +
       rows(1 - sd$y1) * stats::plogis(-eta1, log.p = TRUE)
     occ <- occ + .site_sum(l1, sd$site1, nsite)
   }
-  unocc <- stats::plogis(-lpsi, log.p = TRUE)
+  unocc <- if (emissions_only) matrix(0, S, nsite) else stats::plogis(-lpsi, log.p = TRUE)
   if (fp) {
     l10 <- rows(y2) * stats::plogis(lp10_row, log.p = TRUE) +
       rows(f2) * stats::plogis(-lp10_row, log.p = TRUE)
@@ -217,6 +222,7 @@ print.fp_ppc <- function(x, digits = 3, ...) {
     unocc <- unocc + .site_sum(unocc3, sd$site3, nsite)
     unocc[, unique(sd$site3[v3 >= 2])] <- -Inf
   }
+  if (emissions_only) return(list(occ = occ, unocc = unocc))
   # marginal log-likelihood per site (the log_lik of the Stan program)
   m <- pmax(occ, unocc)
   ll <- m + log(exp(occ - m) + exp(unocc - m))

@@ -1,5 +1,20 @@
 # crywolf (development version)
 
+## Dynamic model (in development)
+
+* `fp_data()` gains `season`, the column of the season (primary period)
+  of each automated and verified occasion, for the dynamic model to come.
+  Seasons follow the levels of a factor or the sorted values, so `night`
+  or `recording_date` of a 'sheepdog' export work as they are. `print()`
+  shows the number of seasons and of sites with data in each, and
+  `fp_data()` warns about seasons without data at any site and about
+  seasons without verified or confirmed data. `fp_occu()` ignores the
+  column.
+* The Stan program keeps the likelihood of each site's observations given
+  that it is occupied and given that it is not (its emissions) in
+  `fp_emissions.stanfunctions`, which `fp_occu.stan` includes and the
+  dynamic model will share. `fp_occu()` gives the same draws as before.
+
 ## Integration with 'sheepdog' (experimental)
 
 * `fp_draws_data()` reads exports of schema 1.3, whose calibration has
