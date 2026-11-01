@@ -195,7 +195,9 @@ fp_calibrate_fit <- function(fit, models = list(fitted = fit$formulas$fp),
   p
 }
 
-.simulate_from <- function(gen, p) {
+# with z, the latent states are those given (the dynamic model draws them
+# over seasons), not drawn from the occupancy probability
+.simulate_from <- function(gen, p, z = NULL) {
   sd <- gen$stan_data
   oc <- gen$occasions
   d <- gen$data
@@ -203,7 +205,7 @@ fp_calibrate_fit <- function(fit, models = list(fitted = fit$formulas$fp),
   has_fp <- sd$estimate_fp == 1
   by_row <- isTRUE(sd$fp_by_row == 1)
 
-  z <- stats::rbinom(nsite, 1, stats::plogis(drop(sd$X %*% p$beta)))
+  if (is.null(z)) z <- stats::rbinom(nsite, 1, stats::plogis(drop(sd$X %*% p$beta)))
   lp10 <- if (has_fp) {
     v <- rep(p$gamma0, nsite)
     if (sd$Kfp > 0 && !by_row) v <- v + drop(sd$Xfp %*% p$gamma_fp)

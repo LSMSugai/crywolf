@@ -64,8 +64,8 @@
 #' 'unmarked', and are still being evaluated. Their arguments, classes and
 #' results may change in a minor version; the NEWS will say so. Each says
 #' so in its help. [fp_occu_dyn()], the dynamic (multi-season) model, with
-#' the `fp_occu_dyn` class and its methods, is experimental in the same
-#' way; the `season` and `season_covs` arguments of [fp_data()] that feed
+#' the `fp_occu_dyn` class and its methods, and its simulator
+#' [simulate_fp_dyn()], are experimental in the same way; the `season` and `season_covs` arguments of [fp_data()] that feed
 #' it are stable. [fp_read_sheepdog()], by contrast, reads a versioned
 #' export format (`sheepdog-occupancy`, schema 1) and is stable.
 #'

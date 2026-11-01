@@ -13,7 +13,10 @@ fp_ppc(
 )
 }
 \arguments{
-\item{object}{An \code{fp_occu} object.}
+\item{object}{An \code{fp_occu} object, or an \code{fp_occu_dyn} object
+(experimental), for which detections are summed per site and season
+and the latent states are drawn jointly over seasons by forward
+filtering, backward sampling.}
 
 \item{method}{Which data to check: \code{"automated"} (default; every site) or
 \code{"verified"} (verified sites only).}
@@ -34,7 +37,8 @@ An object of class \code{fp_ppc}, a list with \code{y} (observed detections
 per site), \code{yrep} (matrix of replicated detections, draws in rows and
 sites in columns), \code{fit_obs} and \code{fit_rep} (discrepancy of the observed and
 replicated data, one value per draw), \code{p_value}, \code{site} (the site
-identifiers of the columns), \code{method}, and \code{fit_stat}.
+identifiers of the columns), \code{method}, and \code{fit_stat}; for a dynamic
+model, also \code{season}, the season of each column.
 }
 \description{
 Replicates the detection data from the posterior of an \code{\link[=fp_occu]{fp_occu()}} fit and

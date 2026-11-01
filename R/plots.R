@@ -196,12 +196,24 @@ plot.fp_effects <- function(x, xlab = x$covariate[1], ...) {
 #' is the quantity to map or rank sites by: a site with automated detections
 #' but a high false-positive rate can still be unlikely to be occupied.
 #'
-#' @param object An `fp_occu` object.
+#' @param object An `fp_occu` object, or an `fp_occu_dyn` object
+#'   (experimental; see Details).
 #' @param prob Width of the credible intervals.
 #' @param ndraws Number of posterior draws to use (all by default).
 #' @param seed Optional seed for the choice of draws.
 #'
-#' @return A data frame of class `fp_sites`, one row per site, with the
+#' @details
+#' For a dynamic model ([fp_occu_dyn()]) the result has one row per site and
+#' season, with the site and season columns and the season covariates.
+#' `psi` is then the probability of occupancy in that season given the
+#' covariates alone (initial occupancy carried forward by colonization and
+#' extinction), and `occupied` the probability that the site-season is
+#' occupied given all the data of the site, in every season (computed by the
+#' forward-backward algorithm for each posterior draw). `detections`,
+#' `verified` and `p10` refer to the site-season.
+#'
+#' @return A data frame of class `fp_sites`, one row per site (per
+#'   site-season for a dynamic model), with the
 #'   site columns of the data, `psi` (occupancy probability, with `psi_lower`
 #'   and `psi_upper`), `occupied` (posterior probability that the site is
 #'   occupied given its data), `occupied_lower` and `occupied_upper`
@@ -222,6 +234,7 @@ plot.fp_effects <- function(x, xlab = x$covariate[1], ...) {
 #' plot(st)
 #' }
 fp_sites <- function(object, prob = 0.95, ndraws = NULL, seed = NULL) {
+  if (inherits(object, "fp_occu_dyn")) return(.fp_sites_dyn(object, prob, ndraws, seed))
   sd <- object$stan_data
   if (!is.null(seed)) .set_seed(seed)
   pars <- .ppc_pars(object$fit, sd, ndraws)
