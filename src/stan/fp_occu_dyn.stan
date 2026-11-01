@@ -308,11 +308,25 @@ model {
 
 generated quantities {
   vector[nsite] log_lik;
+  real p11_ref = obs_confirm == 1
+                 ? 1 - (1 - inv_logit(alpha[1])) * (1 - inv_logit(gamma0))
+                 : inv_logit(alpha[1]);
+  real p10_ref = estimate_fp == 1 ? inv_logit(gamma0) : 0.0;
+  real p10_bar = 0;
+  real r11 = inv_logit(delta0);
   {
     vector[nunit] e_fp = rep_vector(0, nunit);
     if (estimate_fp_re == 1) e_fp = (sigma_fp[1] * e_raw)[unit_site];
     vector[nunit] d_det = rep_vector(0, nunit);
     if (estimate_det_re == 1) d_det = (sigma_det[1] * d_raw)[unit_site];
+    // as in fp_occu.stan, with site-seasons in place of sites
+    vector[nunit] lp10 = rep_vector(gamma0, nunit);
+    if (Kfp > 0 && fp_by_row == 0) lp10 += Xfp * gamma_fp;
+    lp10 += e_fp;
+    if (estimate_fp == 1 && fp_by_row == 0) p10_bar = mean(inv_logit(lp10));
+    if (estimate_fp == 1 && fp_by_row == 1 && N2 > 0) {
+      p10_bar = dot_product(n2v, inv_logit(lp10[site2] + Xfp2 * gamma_fp)) / sum(n2v);
+    }
     log_lik = dyn_loglik(1, nsite, nseason, beta, beta_col, beta_ext, Xcol, Xext, alpha,
                          gamma0, gamma_fp, e_fp, u, d_det, delta0, delta_s, design,
                          automated, verified, confirmed, options);

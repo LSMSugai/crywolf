@@ -155,6 +155,18 @@
 #' its truth fields are `pars` (named generating coefficients), `z`,
 #' `p10_site`, and `p10_bar`.
 #'
+#' @section Dynamic model (experimental):
+#' [fp_occu_dyn()] uses the names above, except that the coefficients of
+#' initial occupancy are `psi1_(Intercept)` and `psi1_<term>` (in place of
+#' `occ_*`), and adds the coefficients of colonization, `col_(Intercept)`
+#' and `col_<term>`, and of extinction, `ext_(Intercept)` and
+#' `ext_<term>`, on the logit scale of the probability per transition
+#' between consecutive seasons. `p10_bar` averages over site-seasons in
+#' place of sites. `log_lik[i]` is the log-likelihood of site `i` over all
+#' its seasons. The raw Stan names are `beta[k]`, `beta_col[k]` and
+#' `beta_ext[k]`. Being experimental, these names may change in a minor
+#' version (see [crywolf-api]).
+#'
 #' @section Readable draws and raw Stan names:
 #' The fitted object contains `draws`, `fit` (the backend fit), `data`,
 #' `formulas`, `markov`, `random_recorder`, `random_fp`, `random_det`, `priors`,

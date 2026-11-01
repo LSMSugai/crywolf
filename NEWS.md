@@ -1,9 +1,24 @@
 # crywolf (development version)
 
-## Dynamic model (in development)
+## Dynamic model (experimental)
 
+* New `fp_occu_dyn()`, experimental: the false-positive occupancy model
+  over several seasons, with initial occupancy (`psi1`), colonization
+  (`col`) and extinction (`ext`) formulas on site and season covariates.
+  Within each season the observation model is that of `fp_occu()`, with
+  all its options. The states are summed out by the forward algorithm.
+  It has `print()`, `summary()` and `as_draws_df()` methods; its output
+  names (`psi1_*`, `col_*`, `ext_*`) are documented in `crywolf-output`.
+* `fp_data()` gains `season_covs`, covariates of each season or of each
+  site and season.
+* `fp_data()` fills in seasons that are dates (`Date`, or text as
+  `YYYY-MM-DD` or `YYYYMMDD`, like `night` and `recording_date` of a
+  'sheepdog' export): the dates missing between the first and the last are
+  added as seasons without data, so that every transition spans the same
+  time (one night for nightly seasons). It warns when dates or numbers are
+  unevenly spaced and cannot be filled in.
 * `fp_data()` gains `season`, the column of the season (primary period)
-  of each automated and verified occasion, for the dynamic model to come.
+  of each automated and verified occasion, for `fp_occu_dyn()`.
   Seasons follow the levels of a factor or the sorted values, so `night`
   or `recording_date` of a 'sheepdog' export work as they are. `print()`
   shows the number of seasons and of sites with data in each, and
@@ -12,8 +27,8 @@
   column.
 * The Stan program keeps the likelihood of each site's observations given
   that it is occupied and given that it is not (its emissions) in
-  `fp_emissions.stanfunctions`, which `fp_occu.stan` includes and the
-  dynamic model will share. `fp_occu()` gives the same draws as before.
+  `fp_emissions.stanfunctions`, which `fp_occu.stan` includes and
+  `fp_occu_dyn.stan` shares. `fp_occu()` gives the same draws as before.
 
 ## Integration with 'sheepdog' (experimental)
 

@@ -11,7 +11,7 @@ test_that("fp_data() orders seasons and reports them", {
   quiet <- function(x) suppressWarnings(x, classes = "crywolf_design_warning")
   d <- quiet(fp_data(auto, sites, verified = ver, season = "night"))
   expect_equal(d$seasons, c("2024-10-01", "2024-10-02", "2024-10-03"))
-  expect_output(print(d), "seasons: +3 \\(sites with data per season: 1 to 2, median 2\\)")
+  expect_output(print(d), "seasons: +3, 1 day\\(s\\) apart \\(sites with data per season: 1 to 2, median 2\\)")
   # without season the object is as before
   expect_null(quiet(fp_data(auto, sites, verified = ver))$season)
 
@@ -49,6 +49,87 @@ test_that("fp_data() warns about seasons without data or verification", {
   expect_match(w, "1 season\\(s\\) have no data at any site \\(e.g. 3\\)", all = FALSE)
 })
 
+# the value of an expression and the messages of its warnings
+with_warnings <- function(expr) {
+  msgs <- character(0)
+  value <- withCallingHandlers(expr, warning = function(cnd) {
+    msgs <<- c(msgs, conditionMessage(cnd))
+    invokeRestart("muffleWarning")
+  })
+  list(value = value, warnings = msgs)
+}
+
+test_that("fp_data() fills in missing dates and warns about uneven seasons", {
+  sites <- data.frame(site = 1:2)
+  auto <- data.frame(site = c(1, 2, 1, 2), y = c(1, 0, 0, 1),
+                     night = c("20241001", "20241002", "20241004", "20241004"))
+  r <- with_warnings(fp_data(auto, sites, season = "night"))
+  d <- r$value
+  expect_equal(d$seasons, c("20241001", "20241002", "20241003", "20241004"))
+  expect_equal(d$season_step, 1)
+  expect_match(r$warnings, "1 season\\(s\\) have no data at any site \\(e.g. 20241003\\)",
+               all = FALSE)
+  expect_output(print(d), "seasons: +4, 1 day\\(s\\) apart")
+  # the step is the shortest interval: Date seasons every other day stay so
+  dd <- with_warnings(fp_data(transform(auto, night = as.Date("2024-10-01") +
+                                          c(0, 2, 6, 6)), sites, season = "night"))$value
+  expect_equal(dd$seasons, as.Date(c("2024-10-01", "2024-10-03", "2024-10-05",
+                                     "2024-10-07")))
+  expect_equal(dd$season_step, 2)
+  # dates not on a common step, and numbers, are taken as they come
+  r3 <- with_warnings(fp_data(transform(auto, night = c("2024-10-01", "2024-10-03",
+                                                        "2024-10-06", "2024-10-06")),
+                              sites, season = "night"))
+  expect_match(r3$warnings, "not evenly spaced", all = FALSE)
+  expect_length(r3$value$seasons, 3)
+  expect_null(r3$value$season_step)
+  r4 <- with_warnings(fp_data(transform(auto, night = c(1, 2, 4, 4)), sites,
+                              season = "night"))
+  expect_match(r4$warnings, "unequally spaced", all = FALSE)
+  expect_equal(r4$value$seasons, c(1, 2, 4))
+  # evenly spaced fractions do not warn, and factor levels are not filled in
+  r5 <- with_warnings(fp_data(transform(auto, night = c(0.1, 0.2, 0.3, 0.3)), sites,
+                              season = "night"))
+  expect_false(any(grepl("unequally", r5$warnings)))
+  f <- factor(auto$night, levels = c("20241004", "20241001", "20241002"))
+  r6 <- with_warnings(fp_data(transform(auto, night = f), sites, season = "night"))
+  expect_equal(r6$value$seasons, levels(f))
+  expect_null(r6$value$season_step)
+})
+
+test_that("season covariates are validated and reach the units", {
+  sites <- data.frame(site = c("a", "b"), x = c(-1, 1))
+  auto <- data.frame(site = c("a", "b", "a", "b"), y = c(1, 0, 0, 1), t = c(1, 1, 2, 2))
+  ver <- data.frame(site = "a", y = 1, t = 1:2)
+  sc <- data.frame(t = 1:2, rain = c(5, 7))
+  quiet <- function(x) suppressWarnings(x, classes = "crywolf_design_warning")
+  d <- quiet(fp_data(auto, sites, verified = ver, season = "t", season_covs = sc))
+  expect_output(print(d), "season covariates: +rain")
+  u <- crywolf:::.dyn_units(d)
+  expect_equal(u$sites$rain, c(5, 7, 5, 7))
+  sd <- crywolf:::.build_dyn_stan_data(d, ~ x, ~ rain, ~ x, ~ 1, ~ 1, FALSE,
+                                       fp_priors())$stan_data
+  # rows of the first season are unused by colonization and extinction
+  expect_equal(sd$Xcol, cbind(c(0, 1, 0, 1), c(0, 7, 0, 7)))
+  expect_equal(sd$Xext, cbind(c(0, 1, 0, 1), c(0, -1, 0, 1)))
+  expect_equal(sd$X, cbind(1, c(-1, 1)), ignore_attr = TRUE)
+  site_sc <- data.frame(site = c("a", "b", "a"), t = c(1, 1, 2), rain = 1:3)
+  d2 <- quiet(fp_data(auto, sites, verified = ver, season = "t", season_covs = site_sc))
+  expect_equal(crywolf:::.dyn_units(d2)$sites$rain, c(1, 3, 2, NA))
+  # (b, 2) has no rain: an error only for a formula that uses it
+  expect_error(crywolf:::.build_dyn_stan_data(d2, ~ 1, ~ rain, ~ 1, ~ 1, ~ 1, FALSE,
+                                              fp_priors()), "Missing values")
+  expect_error(fp_data(auto, sites, season = "t", season_covs = rbind(sc, sc)),
+               "one row per t")
+  expect_error(fp_data(auto, sites, season = "t", season_covs = data.frame(t = 3, r = 1)),
+               "not seasons of the data")
+  expect_error(fp_data(auto, sites, season_covs = sc), "needs `season`")
+  d3 <- quiet(fp_data(auto, sites, season = "t", season_covs = transform(sc, x = 1)))
+  expect_error(crywolf:::.dyn_units(d3), "share names")
+  expect_error(crywolf:::.build_dyn_stan_data(d, ~ 0 + x, ~ 1, ~ 1, ~ 1, ~ 1, FALSE,
+                                              fp_priors()), "keep the intercept")
+})
+
 test_that("site-season units carry the data and known presences of their season", {
   sites <- data.frame(site = c("a", "b"), x = c(-1, 1))
   auto <- data.frame(site = c("a", "a", "b"), y = c(1, 0, 1), t = c(1, 2, 2),
@@ -71,7 +152,7 @@ test_that("the R forward algorithm matches a hand computation", {
   auto <- data.frame(site = 2, y = 1, t = 2)
   ver <- data.frame(site = 3, y = 1, t = 1)
   d <- suppressWarnings(fp_data(auto, sites, verified = ver, season = "t"))
-  sd <- crywolf:::.build_dyn_stan_data(d, ~ 1, ~ 1, ~ 1, FALSE, fp_priors())$stan_data
+  sd <- crywolf:::.build_dyn_stan_data(d, ~ 1, ~ 1, ~ 1, ~ 1, ~ 1, FALSE, fp_priors())$stan_data
   one <- function(p) matrix(stats::qlogis(p), 1, 1)
   pars <- list(beta = one(0.6), alpha = one(0.7), delta0 = stats::qlogis(0.8),
                delta_s = matrix(0, 1, 0), gamma0 = stats::qlogis(0.1),
@@ -83,8 +164,9 @@ test_that("the R forward algorithm matches a hand computation", {
 })
 
 # data in which the occasions of each site fall into seasons; a fraction
-# `drop` of the site-seasons lose all their automated data
-dyn_data <- function(sim, nseason, drop = 0.1, seed = 1) {
+# `drop` of the site-seasons lose all their automated data; with rain, a
+# covariate of each site and season
+dyn_data <- function(sim, nseason, drop = 0.1, seed = 1, rain = FALSE) {
   set.seed(seed)
   d <- sim$data
   nocc <- max(d$auto$occasion)
@@ -95,9 +177,13 @@ dyn_data <- function(sim, nseason, drop = 0.1, seed = 1) {
   if (!is.null(d$verified)) {
     d$verified$season <- sample.int(nseason, nrow(d$verified), replace = TRUE)
   }
+  sc <- if (rain) {
+    expand.grid(site = d$sites$site, season = seq_len(nseason)) |>
+      transform(rain = stats::rnorm(nrow(d$sites) * nseason))
+  }
   suppressWarnings(fp_data(d$auto, d$sites, verified = d$verified,
                            recorder = d$recorder, confirmed = d$confirmed,
-                           season = "season"))
+                           season = "season", season_covs = sc))
 }
 
 test_that("with one season the dynamic likelihood equals that of fp_occu()", {
@@ -110,7 +196,7 @@ test_that("with one season the dynamic likelihood equals that of fp_occu()", {
     m <- suppressWarnings(fp_occu(data, occ = ~ x, ..., chains = 1, iter_warmup = 100,
                                   iter_sampling = 20, threads_per_chain = 1, seed = 3,
                                   refresh = 0, show_messages = FALSE, sig_figs = 18))
-    sl <- crywolf:::.build_dyn_stan_data(data, ~ x, ..., priors = fp_priors())
+    sl <- crywolf:::.build_dyn_stan_data(data, ~ x, ~ 1, ~ 1, ..., priors = fp_priors())
     # the parameters of fp_occu.stan, then those of colonization and extinction
     pars <- m$fit$draws(format = "draws_array")
     pars <- posterior::subset_draws(pars, variable = posterior::variables(pars)[
@@ -145,18 +231,19 @@ test_that("the R likelihood matches the Stan log_lik over several seasons", {
   s_chambert <- simulate_fp(nsite = 60, nocc = 6, frac_confirmed = 0.4,
                             frac_verified = 0.3, seed = 6)
   gap <- function(data, ...) {
-    m <- suppressWarnings(crywolf:::fp_occu_dyn(data, occ = ~ x, ..., chains = 1,
-                                                iter_warmup = 150, iter_sampling = 20,
-                                                threads_per_chain = 1, seed = 3,
-                                                refresh = 0, show_messages = FALSE,
-                                                sig_figs = 15))
+    m <- suppressWarnings(fp_occu_dyn(data, psi1 = ~ x, ..., chains = 1,
+                                      iter_warmup = 150, iter_sampling = 20,
+                                      threads_per_chain = 1, seed = 3, refresh = 0,
+                                      show_messages = FALSE, sig_figs = 15))
     ll_r <- crywolf:::.dyn_loglik(m$stan_data, crywolf:::.dyn_pars(m$fit, m$stan_data))
     ll <- unclass(posterior::as_draws_matrix(m$fit$draws("log_lik")))
     max(abs(ll_r - ll) / pmax(1, abs(ll)))
   }
   gaps <- c(
-    miller = gap(dyn_data(s_miller, 3), det = ~ bio, fp = ~ w, random_recorder = TRUE),
-    chambert_random = gap(dyn_data(s_chambert, 3), fp = ~ 1, random_recorder = FALSE,
+    miller = gap(dyn_data(s_miller, 3), col = ~ x, ext = ~ w, det = ~ bio, fp = ~ w,
+                 random_recorder = TRUE),
+    chambert_random = gap(dyn_data(s_chambert, 3, rain = TRUE), col = ~ rain,
+                          ext = ~ rain + x, fp = ~ 1, random_recorder = FALSE,
                           random_fp = TRUE, random_det = TRUE),
     markov_noise = gap(dyn_data(s_chambert, 2), fp = ~ aci, random_recorder = FALSE,
                        markov = "occasion")
@@ -164,4 +251,26 @@ test_that("the R likelihood matches the Stan log_lik over several seasons", {
   purrr::iwalk(gaps, function(g, name) {
     expect_lt(g, 1e-8, label = paste(name, "relative difference R vs Stan"))
   })
+})
+
+test_that("fp_occu_dyn() names its parameters and prints", {
+  skip_if_no_cmdstan()
+  sim <- simulate_fp(nsite = 60, nocc = 6, frac_verified = 0.3, seed = 6)
+  m <- suppressWarnings(fp_occu_dyn(dyn_data(sim, 3, rain = TRUE), psi1 = ~ x,
+                                    col = ~ rain, ext = ~ 1, fp = ~ 1,
+                                    random_recorder = FALSE, chains = 1,
+                                    iter_warmup = 100, iter_sampling = 50,
+                                    threads_per_chain = 1, seed = 1, refresh = 0,
+                                    show_messages = FALSE))
+  expect_s3_class(m, "fp_occu_dyn")
+  expect_setequal(posterior::variables(as_draws_df(m)),
+                  c("psi1_(Intercept)", "psi1_x", "col_(Intercept)", "col_rain",
+                    "ext_(Intercept)", "det_(Intercept)", "fp_(Intercept)", "fp_gap",
+                    "verified_(Intercept)", "p_verified", "p11_ref", "p10_ref",
+                    "p10_bar"))
+  # short chains: posterior warns that the ESS is capped
+  expect_s3_class(suppressWarnings(summary(m)), "summary.fp_occu")
+  out <- capture.output(suppressWarnings(print(m)))
+  expect_match(out, "colonization: +~rain", all = FALSE)
+  expect_match(out, "60 sites over 3 seasons", all = FALSE)
 })
