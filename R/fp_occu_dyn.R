@@ -28,6 +28,12 @@
 #' data in the seasons, the two processes are hard to separate from false
 #' positives.
 #'
+#' The fit also gives, per season, the expected and the realized occupancy
+#' over sites (`psi_mean`, `psi_fs`) and the turnover, and, with constant
+#' transitions, the equilibrium occupancy (`psi_eq`); see [crywolf-output].
+#' `summary()` lists them with their season; `print()` shows only the
+#' parameters.
+#'
 #' @param data An `fp_data` object with a season column; see the `season`
 #'   and `season_covs` arguments of [fp_data()].
 #' @param psi1 One-sided formula for the occupancy probability in the first
@@ -104,7 +110,10 @@ fp_occu_dyn <- function(data, psi1 = ~ 1, col = ~ 1, ext = ~ 1, det = ~ 1, fp = 
   fit$draws()
   fit$sampler_diagnostics()
   draws <- .pretty_draws_dyn(fit, sd_list)
-  diag <- .diagnostics(fit, draws)
+  # convergence is judged on the parameters, not on the derived quantities
+  # (psi_fs is constant when every state is known)
+  vars <- posterior::variables(draws)
+  diag <- .diagnostics(fit, posterior::subset_draws(draws, variable = vars[!.is_derived(vars)]))
   out <- structure(
     list(fit = fit, draws = draws, stan_data = sd_list$stan_data,
          formulas = list(psi1 = psi1, col = col, ext = ext, det = det, fp = fp, ver = ver),
@@ -152,7 +161,12 @@ print.fp_occu_dyn <- function(x, digits = 3, ...) {
   }
   cat(sprintf("  data:              %d sites over %d seasons, %d automated and %d verified occasions\n\n",
               sd$nsite, sd$nseason, sum(sd$n2) + sd$N3, sd$N1))
-  print(as.data.frame(summary(x)$table), digits = digits, row.names = FALSE)
+  tab <- summary(x)$table
+  print(as.data.frame(tab[tab$season == "", names(tab) != "season"]), digits = digits,
+        row.names = FALSE)
+  cat("\n  Occupancy per season (psi_mean, psi_fs), turnover",
+      if ("psi_eq" %in% tab$variable) "and equilibrium occupancy (psi_eq)",
+      "in summary().\n")
   .print_diag(x$diagnostics)
   invisible(x)
 }
@@ -160,11 +174,22 @@ print.fp_occu_dyn <- function(x, digits = 3, ...) {
 #' @rdname fp_occu_dyn
 #' @param prob Width of the equal-tailed credible interval.
 #' @return `summary()` returns an object of class `summary.fp_occu`, as for
-#'   [fp_occu()].
+#'   [fp_occu()], whose table has also a `season` column: the season of the
+#'   derived quantities `psi_mean[t]`, `psi_fs[t]` and `turnover[t]`, and
+#'   empty for the other rows (see [crywolf-output]).
 #' @export
 summary.fp_occu_dyn <- function(object, prob = 0.95, ...) {
-  summary.fp_occu(object, prob = prob)
+  s <- summary.fp_occu(object, prob = prob)
+  t <- suppressWarnings(as.integer(sub("^[a-z_]+\\[(\\d+)\\]$", "\\1", s$table$variable)))
+  t[!.is_derived(s$table$variable)] <- NA
+  season <- as.character(object$data$seasons)[t]
+  season[is.na(season)] <- ""
+  s$table <- tibble::add_column(s$table, season = season, .after = "variable")
+  s
 }
+
+# derived quantities of fp_occu_dyn.stan, by readable name
+.is_derived <- function(v) grepl("^(psi_mean|psi_fs|turnover)\\[|^psi_eq$", v)
 
 #' @rdname fp_occu_dyn
 #' @export
@@ -245,6 +270,15 @@ as_draws_df.fp_occu_dyn <- function(x, ...) {
                            sprintf("beta_col[%d]", seq_along(des$col_names))),
            stats::setNames(paste0("ext_", des$ext_names),
                            sprintf("beta_ext[%d]", seq_along(des$ext_names))))
+  # derived quantities; turnover[t] is numbered by the season t it enters
+  nt <- sd$nseason
+  map <- c(map,
+           stats::setNames(sprintf("psi_mean[%d]", seq_len(nt)), sprintf("psi_mean[%d]", seq_len(nt))),
+           stats::setNames(sprintf("psi_fs[%d]", seq_len(nt)), sprintf("psi_fs[%d]", seq_len(nt))),
+           if (nt > 1) stats::setNames(sprintf("turnover[%d]", 2:nt),
+                                       sprintf("turnover[%d]", seq_len(nt - 1))),
+           if (nt > 1 && length(des$col_names) == 1 && length(des$ext_names) == 1)
+             c(`psi_eq[1]` = "psi_eq"))
   dr <- posterior::as_draws_df(fit$draws(variables = unique(sub("\\[.*", "", names(map)))))
   dr <- posterior::subset_draws(dr, variable = names(map))
   posterior::variables(dr) <- unname(map[posterior::variables(dr)])

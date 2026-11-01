@@ -206,9 +206,13 @@ test_that("with one season the dynamic likelihood equals that of fp_occu()", {
     pars <- posterior::bind_draws(pars, posterior::draws_array(
       `beta_col[1]` = array(stats::rnorm(20), c(20, 1)),
       `beta_ext[1]` = array(stats::rnorm(20), c(20, 1))), along = "variable")
+    # a folder per call: cmdstanr draws the file name with the R seed just set,
+    # so calls in the same minute would write to the same file
+    out <- tempfile("gq")
+    dir.create(out)
     gq <- crywolf:::.compile_model("fp_occu_dyn")$generate_quantities(
       fitted_params = pars, data = sl$stan_data, seed = 1, sig_figs = 18,
-      threads_per_chain = 1)
+      threads_per_chain = 1, output_dir = out)
     a <- unclass(posterior::as_draws_matrix(m$fit$draws("log_lik")))
     b <- unclass(posterior::as_draws_matrix(gq$draws("log_lik")))
     max(abs(a - b) / pmax(1, abs(a)))
@@ -267,12 +271,18 @@ test_that("fp_occu_dyn() names its parameters and prints", {
                   c("psi1_(Intercept)", "psi1_x", "col_(Intercept)", "col_rain",
                     "ext_(Intercept)", "det_(Intercept)", "fp_(Intercept)", "fp_gap",
                     "verified_(Intercept)", "p_verified", "p11_ref", "p10_ref",
-                    "p10_bar"))
+                    "p10_bar", sprintf("psi_mean[%d]", 1:3), sprintf("psi_fs[%d]", 1:3),
+                    "turnover[2]", "turnover[3]"))
+  # derived quantities are listed by summary(), with their season, not by print()
+  tab <- suppressWarnings(summary(m))$table
+  expect_equal(tab$season[tab$variable == "turnover[3]"], "3")
+  expect_equal(unique(tab$season[!grepl("\\[", tab$variable)]), "")
   # short chains: posterior warns that the ESS is capped
   expect_s3_class(suppressWarnings(summary(m)), "summary.fp_occu")
   out <- capture.output(suppressWarnings(print(m)))
   expect_match(out, "colonization: +~rain", all = FALSE)
   expect_match(out, "60 sites over 3 seasons", all = FALSE)
+  expect_false(any(grepl("psi_mean\\[", out)))
 })
 
 # small data for the latent states: site 1 has no data in season 2, site 3 a
@@ -384,4 +394,54 @@ test_that("fp_sites(), fp_ppc() and simulate() work with the dynamic model", {
   expect_setequal(names(new[[1]]$truth$pars), names(s$truth$pars))
   expect_equal(nrow(new[[1]]$data$auto), nrow(s$data$auto))
   expect_equal(new[[1]]$data$season_covs, s$data$season_covs)
+})
+
+test_that("derived quantities per season match their definitions", {
+  skip_if_no_cmdstan()
+  fit <- function(s, ...) {
+    suppressWarnings(fp_occu_dyn(s$data, ..., random_recorder = FALSE, chains = 2,
+                                 iter_warmup = 400, iter_sampling = 400,
+                                 threads_per_chain = 1, seed = 1, refresh = 0,
+                                 show_messages = FALSE, sig_figs = 15))
+  }
+  draws_of <- function(m, name) {
+    unclass(posterior::as_draws_matrix(posterior::subset_draws(
+      as_draws_df(m), variable = name, regex = TRUE)))
+  }
+  # covariates on all three processes: psi_mean and turnover from the
+  # coefficients, psi_fs against the forward-backward probabilities in R
+  s <- simulate_fp_dyn(nsite = 150, nseason = 4, b_psi1 = 0.5, b_col = 1, b_ext = -1,
+                       seed = 2)
+  m <- fit(s, psi1 = ~ x, col = ~ rain, ext = ~ x)
+  sd <- m$stan_data
+  pars <- crywolf:::.dyn_pars(m$fit, sd)
+  nt <- sd$nseason
+  col <- stats::plogis(pars$beta_col %*% t(sd$Xcol))
+  ext <- stats::plogis(pars$beta_ext %*% t(sd$Xext))
+  unit <- function(t) (seq_len(sd$nsite) - 1L) * nt + t
+  psi <- list(stats::plogis(pars$beta %*% t(sd$X)))
+  for (t in 2:nt) {
+    psi[[t]] <- psi[[t - 1]] * (1 - ext[, unit(t)]) + (1 - psi[[t - 1]]) * col[, unit(t)]
+  }
+  expect_equal(draws_of(m, "^psi_mean\\["), sapply(psi, rowMeans), tolerance = 1e-8,
+               ignore_attr = TRUE)
+  turnover <- sapply(2:nt, function(t) {
+    rowSums((1 - psi[[t - 1]]) * col[, unit(t)]) / rowSums(psi[[t]])
+  })
+  expect_equal(draws_of(m, "^turnover\\["), turnover, tolerance = 1e-8, ignore_attr = TRUE)
+  expect_false("psi_eq" %in% posterior::variables(as_draws_df(m)))
+  pz <- crywolf:::.dyn_ffbs(sd, pars)$pz
+  expect_equal(colMeans(draws_of(m, "^psi_fs\\[")),
+               sapply(seq_len(nt), function(t) mean(pz[, unit(t)])),
+               tolerance = 0.01, ignore_attr = TRUE)
+  # the realized occupancy of the simulation within the 95% intervals
+  ci <- apply(draws_of(m, "^psi_fs\\["), 2, stats::quantile, c(0.025, 0.975))
+  real <- colMeans(s$truth$z)
+  expect_true(all(real > ci[1, ] & real < ci[2, ]))
+
+  # constant transitions: the equilibrium occupancy
+  m0 <- fit(simulate_fp_dyn(nsite = 80, nseason = 3, seed = 3))
+  g <- stats::plogis(draws_of(m0, "^col_"))
+  e <- stats::plogis(draws_of(m0, "^ext_"))
+  expect_equal(c(draws_of(m0, "^psi_eq$")), c(g / (g + e)), tolerance = 1e-8)
 })

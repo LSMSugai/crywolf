@@ -21,6 +21,14 @@
 // not units. The sum over sites runs with reduce_sum(), each slice of sites
 // with all their seasons. With one season the log density equals that of
 // fp_occu.stan, apart from the priors of beta_col and beta_ext.
+//
+// Generated quantities add, per season: the expected occupancy averaged over
+// sites (psi_mean), the realized occupancy, the share of sites occupied with
+// the states drawn from their joint posterior by forward filtering, backward
+// sampling (psi_fs), the turnover, the probability that an occupied site was
+// unoccupied in the season before (turnover, seasons 2 to nseason), and, with
+// intercept-only colonization and extinction, the equilibrium occupancy
+// gamma / (gamma + eps) (psi_eq).
 // ============================================================================
 functions {
 #include fp_emissions.stanfunctions
@@ -314,6 +322,13 @@ generated quantities {
   real p10_ref = estimate_fp == 1 ? inv_logit(gamma0) : 0.0;
   real p10_bar = 0;
   real r11 = inv_logit(delta0);
+  vector[nseason] psi_mean;
+  vector[nseason] psi_fs;
+  vector[nseason - 1] turnover;
+  array[Kcol == 1 && Kext == 1 && nseason > 1 ? 1 : 0] real psi_eq;
+  if (size(psi_eq) == 1) {
+    psi_eq[1] = inv_logit(beta_col[1]) / (inv_logit(beta_col[1]) + inv_logit(beta_ext[1]));
+  }
   {
     vector[nunit] e_fp = rep_vector(0, nunit);
     if (estimate_fp_re == 1) e_fp = (sigma_fp[1] * e_raw)[unit_site];
@@ -327,8 +342,53 @@ generated quantities {
     if (estimate_fp == 1 && fp_by_row == 1 && N2 > 0) {
       p10_bar = dot_product(n2v, inv_logit(lp10[site2] + Xfp2 * gamma_fp)) / sum(n2v);
     }
-    log_lik = dyn_loglik(1, nsite, nseason, beta, beta_col, beta_ext, Xcol, Xext, alpha,
-                         gamma0, gamma_fp, e_fp, u, d_det, delta0, delta_s, design,
-                         automated, verified, confirmed, options);
+    // forward over the seasons of each site, as in dyn_loglik(), keeping
+    // log P(z_t, observations up to t) of every unit for the backward pass
+    tuple(vector[nunit], vector[nunit]) em = unit_emissions(1, nunit, alpha, gamma0, gamma_fp,
+                                                            e_fp, u, d_det, delta0, delta_s,
+                                                            design, automated, verified,
+                                                            confirmed, options);
+    vector[nsite] lpsi = X * beta;
+    vector[nunit] lcol = Xcol * beta_col;
+    vector[nunit] lext = Xext * beta_ext;
+    vector[nunit] f1;
+    vector[nunit] f0;
+    vector[nunit] pz;                        // occupancy from the covariates alone
+    array[nunit] int z;
+    for (i in 1:nsite) {
+      int k = (i - 1) * nseason + 1;
+      f1[k] = log_inv_logit(lpsi[i]) + em.1[k];
+      f0[k] = log1m_inv_logit(lpsi[i]) + (known_present[k] == 1 ? negative_infinity() : em.2[k]);
+      pz[k] = inv_logit(lpsi[i]);
+      for (t in 2:nseason) {
+        k += 1;
+        f1[k] = log_sum_exp(f1[k - 1] + log1m_inv_logit(lext[k]),
+                            f0[k - 1] + log_inv_logit(lcol[k])) + em.1[k];
+        f0[k] = log_sum_exp(f1[k - 1] + log_inv_logit(lext[k]),
+                            f0[k - 1] + log1m_inv_logit(lcol[k]))
+                + (known_present[k] == 1 ? negative_infinity() : em.2[k]);
+        pz[k] = pz[k - 1] * (1 - inv_logit(lext[k])) + (1 - pz[k - 1]) * inv_logit(lcol[k]);
+      }
+      log_lik[i] = log_sum_exp(f1[k], f0[k]);
+      // backward sampling: the last season, then each season given the next
+      z[k] = bernoulli_rng(inv_logit(f1[k] - f0[k]));
+      for (t in 1:(nseason - 1)) {
+        k -= 1;
+        real w = z[k + 1] == 1
+                 ? (f1[k] + log1m_inv_logit(lext[k + 1])) - (f0[k] + log_inv_logit(lcol[k + 1]))
+                 : (f1[k] + log_inv_logit(lext[k + 1])) - (f0[k] + log1m_inv_logit(lcol[k + 1]));
+        z[k] = bernoulli_rng(inv_logit(w));
+      }
+    }
+    // per season, over sites
+    for (t in 1:nseason) {
+      array[nsite] int k = linspaced_int_array(nsite, t, t + (nsite - 1) * nseason);
+      psi_mean[t] = mean(pz[k]);
+      psi_fs[t] = mean(to_vector(z[k]));
+      if (t > 1) {
+        array[nsite] int k0 = linspaced_int_array(nsite, t - 1, t - 1 + (nsite - 1) * nseason);
+        turnover[t - 1] = dot_product(1 - pz[k0], inv_logit(lcol[k])) / sum(pz[k]);
+      }
+    }
   }
 }
