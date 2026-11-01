@@ -16,6 +16,11 @@
   detections per site-season, with the latent states drawn jointly over
   seasons by forward filtering, backward sampling, and `simulate()` draws
   new states and detections with the structure of the data.
+* `fp_occu_dyn()` gives derived quantities per season: expected
+  occupancy over sites (`psi_mean[t]`), realized occupancy with the states
+  drawn from their joint posterior (`psi_fs[t]`), turnover (`turnover[t]`)
+  and, with intercept-only colonization and extinction, the equilibrium
+  occupancy (`psi_eq`). `summary()` lists them with a `season` column.
 * New `simulate_fp_dyn()`, experimental: simulates data for
   `fp_occu_dyn()`, with colonization on a season covariate and initial
   occupancy and extinction on a site covariate.
