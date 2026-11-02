@@ -37,7 +37,9 @@
 # rerun. Run from the package root, with crywolf installed from this
 # checkout:
 #   WORKERS=20 THREADS=1 Rscript dev/dyn-kfold/run_kfold.R
-# TASKS (e.g. "dyn-1") runs only some of the 20 tasks, for a pilot. Do not
+# TASKS (e.g. "dyn-1") runs only some of the 20 tasks, for a pilot;
+# SEED_OFFSET (default 0) is added to the seeds, to rerun a task whose fit
+# did not converge (delete its job file first). Do not
 # edit this file while it runs: Rscript reads it as it goes.
 # =============================================================================
 
@@ -173,7 +175,7 @@ run_task <- function(model, k, seed) {
 }
 
 tasks <- expand.grid(fold = seq_len(K), model = c("dyn", "ind"), stringsAsFactors = FALSE)
-tasks$seed <- 91000 + seq_len(nrow(tasks))
+tasks$seed <- 91000 + seq_len(nrow(tasks)) + as.integer(Sys.getenv("SEED_OFFSET", "0"))
 tasks$id <- paste(tasks$model, tasks$fold, sep = "-")
 if (nzchar(only)) tasks <- tasks[tasks$id %in% strsplit(only, ",")[[1]], ]
 message(nrow(tasks), " task(s), ", workers, " worker(s) x 4 chains x ", threads, " thread(s)")

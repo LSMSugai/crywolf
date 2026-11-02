@@ -25,3 +25,4 @@ dev/random-det/jobs/
 AI interaction log.md
 dev/dyn-sim/jobs/
 dev/dyn-kfold/jobs/
+dev/dyn-kfold/stuck/
