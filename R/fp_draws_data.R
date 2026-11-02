@@ -7,7 +7,8 @@
 #' when at least one of its predictions is judged true under that draw.
 #'
 #' @param x An export read by [fp_read_sheepdog()], with calibration draws.
-#'   Read it with `species` set to the target species.
+#'   Read it with `species` set to the target species, or to several species
+#'   for the multispecies model (see Value).
 #' @param rule How a prediction is judged true under a draw with
 #'   probability `p` of being true: `"sample"` (default) draws it true with
 #'   probability `p`, so that no threshold is involved; `"threshold"` takes
@@ -81,7 +82,11 @@
 #' its priors; compare with `fp = NULL`.
 #'
 #' @return A list of [fp_data()] objects, one per calibration draw, with
-#'   the attributes `draws` (the draw identifiers) and `rule`.
+#'   the attributes `draws` (the draw identifiers) and `rule`. When the
+#'   detections hold several species, each version has every occasion once
+#'   per species, with the column `species` (the short codes of sheepdog),
+#'   as `fp_data(species = "species")`; the species are those with
+#'   predictions.
 #' @seealso [fp_occu_mc()], [fp_read_sheepdog()]
 #' @section Experimental:
 #' This function is experimental (new in 2.0.0, part of the integration with
@@ -117,17 +122,28 @@ fp_draws_data <- function(x, rule = c("sample", "threshold"), p_min = 0.95,
   .require_pkg("arrow")
   .check_df(occasions, "occasions", c("site", "occasion_id", site))
   det <- x$detections
-  if (length(unique(det$species)) > 1) {
-    stop("The export holds several species; read it with ",
-         "fp_read_sheepdog(species = ) set to the target species.", call. = FALSE)
-  }
   occ_key <- paste(occasions$site, occasions$occasion_id, sep = "\r")
   if (anyDuplicated(occ_key)) {
     stop("`occasions` must have one row per site and occasion_id.", call. = FALSE)
   }
+  # several species: the occasions once per species, species after species;
+  # occasion i of species s is row i + (s - 1) * n_occ
+  sp <- sort(unique(det$species))
+  n_occ <- nrow(occasions)
+  auto0 <- occasions
+  if (length(sp) > 1) {
+    if ("species" %in% names(occasions)) {
+      stop("`occasions` has a column `species`; with several species it is ",
+           "added by fp_draws_data().", call. = FALSE)
+    }
+    auto0 <- occasions[rep(seq_len(n_occ), length(sp)), , drop = FALSE]
+    auto0$species <- rep(sp, each = n_occ)
+    rownames(auto0) <- NULL
+  }
+  row_of <- function(o, species) o + (match(species, sp) - 1L) * n_occ
   if (length(covariates)) {
     d <- .covariate_draws(x, if (rule_given) rule, if (p_min_given) p_min, seed,
-                          n_draws, unique(det$species))
+                          n_draws, sp)
     ids <- d$ids
     rule <- d$rule
     saved <- d$saved
@@ -150,7 +166,7 @@ fp_draws_data <- function(x, rule = c("sample", "threshold"), p_min = 0.95,
     # read back from schema.json can differ in the last digit and send a
     # score half-way between two points to the other one
     grid_min <- min(cal$confidence[cal$grid_index == 1])
-    cal <- cal[cal$species %in% unique(det$species), , drop = FALSE]
+    cal <- cal[cal$species %in% sp, , drop = FALSE]
     ids <- sort(unique(cal$draw))
     if (!is.null(n_draws)) ids <- utils::head(ids, n_draws)
 
@@ -193,7 +209,7 @@ fp_draws_data <- function(x, rule = c("sample", "threshold"), p_min = 0.95,
     step <- x$schema$calibration$grid_step
     g <- round((det$confidence - grid_min) / step) + 1
     g <- pmin(pmax(g, 1), max(cal$grid_index))
-    o <- match(paste(det$site, det$occasion_id, sep = "\r"), occ_key)
+    o <- row_of(match(paste(det$site, det$occasion_id, sep = "\r"), occ_key), det$species)
     k <- match(do.call(key, c(list(det$site, det$species), det_keys, list(g))), rows)
     # an occasion without a value of a key cannot be matched to a calibration
     k[Reduce(`|`, lapply(det_keys, is.na), FALSE)] <- NA
@@ -213,7 +229,7 @@ fp_draws_data <- function(x, rule = c("sample", "threshold"), p_min = 0.95,
     }
     # the histories sheepdog drew with the same settings, when it wrote them
     # (occasion_draws.parquet, schema 1.2): the same values, computed once
-    saved <- .saved_occasion_draws(x, rule, p_min, seed, ids, unique(det$species),
+    saved <- .saved_occasion_draws(x, rule, p_min, seed, ids, sp,
                                    complete = !anyNA(o))
     keep <- !is.na(k) & !is.na(o) & !(o %in% unscored)
     if (!any(keep)) {
@@ -236,8 +252,9 @@ fp_draws_data <- function(x, rule = c("sample", "threshold"), p_min = 0.95,
   if (!is.null(verified)) verified <- verified[c(site, setdiff(names(verified), site))]
   if (!is.null(saved)) {
     # occasions without predictions are not in the table: no detection
-    Y <- matrix(0L, nrow(occasions), length(ids))
-    Y[cbind(match(paste(saved$site, saved$occasion_id, sep = "\r"), occ_key),
+    Y <- matrix(0L, nrow(auto0), length(ids))
+    Y[cbind(row_of(match(paste(saved$site, saved$occasion_id, sep = "\r"), occ_key),
+                   saved$species),
             match(saved$draw, ids))] <- saved$y
   } else if (!is.null(seed) && rule == "sample") {
     # the user's random numbers continue as if this call had drawn none
@@ -253,18 +270,19 @@ fp_draws_data <- function(x, rule = c("sample", "threshold"), p_min = 0.95,
   }
 
   out <- purrr::imap(ids, function(id, j) {
-    auto <- occasions
+    auto <- auto0
     if (is.null(saved)) {
       p <- P[k, j]
       true <- if (rule == "sample") stats::runif(length(p)) < p else p >= p_min
-      auto$y <- as.integer(tabulate(o[true], nbins = nrow(occasions)) > 0)
+      auto$y <- as.integer(tabulate(o[true], nbins = nrow(auto)) > 0)
       auto$y[unscored] <- NA
     } else {
       auto$y <- Y[, j]
     }
     # the design checks of fp_data() speak once, for the first version
-    if (j == 1) return(fp_data(auto, sites, verified, site = site))
-    withCallingHandlers(fp_data(auto, sites, verified, site = site),
+    species <- if (length(sp) > 1) "species"
+    if (j == 1) return(fp_data(auto, sites, verified, site = site, species = species))
+    withCallingHandlers(fp_data(auto, sites, verified, site = site, species = species),
                         crywolf_design_warning = function(w) invokeRestart("muffleWarning"))
   })
   structure(out, draws = ids, rule = rule)

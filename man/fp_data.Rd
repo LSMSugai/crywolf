@@ -13,7 +13,8 @@ fp_data(
   recorder = NULL,
   confirmed = NULL,
   season = NULL,
-  season_covs = NULL
+  season_covs = NULL,
+  species = NULL
 )
 }
 \arguments{
@@ -70,6 +71,16 @@ the colonization, extinction and initial occupancy formulas of
 the season column named by \code{season} and, for covariates that vary among
 sites too, the site column; one row per season, or per site and season.
 Seasons added between dates need rows only if a formula uses them.}
+
+\item{species}{Optional name of a column of \code{auto} (and of \code{verified}, if
+given) holding the species, for the multispecies model, which is in
+development. The tables are then in long format by species too: one
+row per occasion and species, with every surveyed occasion present for
+every species (\code{y = 0} where the species was not detected), since the
+non-detections are data. The species are the levels of a factor, and
+otherwise the sorted values of \code{auto} and \code{verified}. It cannot be
+combined with \code{season} yet, and the single-species models refuse such
+data.}
 }
 \value{
 An object of class \code{fp_data}: a list with the tables \code{auto},
@@ -79,7 +90,8 @@ vector \code{known_present}, which flags sites with at least one verified
 detection or confirmed true observation, and, with \code{season}, the
 seasons in time order in \code{seasons}, the step between dates in days in
 \code{season_step} (\code{NULL} for seasons that are not dates) and the table
-\code{season_covs}.
+\code{season_covs}. With \code{species}, the species in \code{species_names}, and
+\code{known_present} is a matrix of sites by species.
 }
 \description{
 Collects the automated detections, the verified detections, and the site
@@ -99,7 +111,12 @@ observation. With \code{season}, it also warns about seasons without data at
 any site (unused levels of a factor, or dates added between the first
 and the last), about seasons without verified or confirmed data, in which
 colonization and extinction are hard to tell from false positives, and
-about seasons at unequal intervals that could not be filled in.
+about seasons at unequal intervals that could not be filled in. With
+\code{species}, it warns about species never detected by the automated method,
+species without any verified detection, whose false-positive rates are
+then informed only by the other species and the priors, and sites where
+the species have unequal numbers of occasions (often occasions without a
+detection left out for some species).
 \code{\link[=fp_aggregate]{fp_aggregate()}} builds \code{auto} from classifier output.
 }
 \examples{

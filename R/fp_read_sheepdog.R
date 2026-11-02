@@ -13,7 +13,10 @@
 #'   Pauraque"`) and `species` (the short code that sheepdog derives from
 #'   it). Without it, an export of several species is kept whole, and the
 #'   verdicts and annotated recordings of all species are mixed: name the
-#'   target species.
+#'   target species. For the multispecies model, name the species to keep
+#'   (all of them: `species = schema$species`, from `schema.json`); every
+#'   table then keeps its species columns, and [fp_draws_data()] builds the
+#'   data of all of them.
 #' @param keep_top Keep reviewed clips drawn with `sampling_mode = "top"`?
 #'   See Details.
 #'
@@ -133,7 +136,8 @@ fp_read_sheepdog <- function(path, species = NULL, keep_top = FALSE) {
   if (is.null(species) && length(several)) {
     warning("The export holds several species, so `",
             paste(names(several), collapse = "` and `"), "` mix the verdicts ",
-            "of all of them. Name the target species in `species`.", call. = FALSE)
+            "of all of them. Name the target species in `species`, or all ",
+            "the species to keep them for the multispecies model.", call. = FALSE)
   }
 
   if (!is.null(detections)) {

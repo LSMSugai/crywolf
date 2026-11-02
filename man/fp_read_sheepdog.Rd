@@ -13,7 +13,10 @@ fp_read_sheepdog(path, species = NULL, keep_top = FALSE)
 (the classifier label, such as \code{"Nyctidromus albicollis_Common Pauraque"}) and \code{species} (the short code that sheepdog derives from
 it). Without it, an export of several species is kept whole, and the
 verdicts and annotated recordings of all species are mixed: name the
-target species.}
+target species. For the multispecies model, name the species to keep
+(all of them: \code{species = schema$species}, from \code{schema.json}); every
+table then keeps its species columns, and \code{\link[=fp_draws_data]{fp_draws_data()}} builds the
+data of all of them.}
 
 \item{keep_top}{Keep reviewed clips drawn with \code{sampling_mode = "top"}?
 See Details.}

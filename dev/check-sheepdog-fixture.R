@@ -3,6 +3,7 @@
 # contract test (test-contract.R) checks against the schema:
 #   tests/testthat/fixtures/sheepdog-export      <- export-1.2
 #   tests/testthat/fixtures/sheepdog-export-1.3  <- export-1.3
+#   tests/testthat/fixtures/sheepdog-export-1.3-ms <- export-1.3-ms
 # Files are compared by their git blob SHA, as listed by the GitHub API, so
 # nothing is downloaded unless the copies differ.
 # Run from the package root: Rscript dev/check-sheepdog-fixture.R [--update]
@@ -11,7 +12,8 @@
 # fp_draws_data().
 update <- "--update" %in% commandArgs(trailingOnly = TRUE)
 fixtures <- c("sheepdog-export" = "export-1.2",
-              "sheepdog-export-1.3" = "export-1.3")
+              "sheepdog-export-1.3" = "export-1.3",
+              "sheepdog-export-1.3-ms" = "export-1.3-ms")
 differ <- FALSE
 for (i in seq_along(fixtures)) {
   local <- file.path("tests/testthat/fixtures", names(fixtures)[i])

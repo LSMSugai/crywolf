@@ -1,5 +1,18 @@
 # crywolf (development version)
 
+## Multispecies data (in development)
+
+* `fp_data()` gains `species`, the column of the species, for the
+  multispecies model in development: one row per occasion and species. It
+  warns about species never detected, species without a verified
+  detection, and sites where the species have unequal numbers of
+  occasions; `print()` adds a table by species, and `known_present` is a
+  matrix of sites by species. The single-species models refuse such data.
+* `fp_draws_data()` accepts an export read with several species
+  (`fp_read_sheepdog(species = )` naming them all) and returns data of
+  all of them, as `fp_data(species = "species")`, from the calibration
+  draws or the histories drawn by sheepdog.
+
 ## Dynamic model (experimental)
 
 * New `fp_occu_dyn()`, experimental: the false-positive occupancy model

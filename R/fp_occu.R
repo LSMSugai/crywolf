@@ -225,9 +225,7 @@ fp_occu <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
                     chains = 4, parallel_chains = chains, threads_per_chain = "auto",
                     iter_warmup = 1000, iter_sampling = 1000,
                     adapt_delta = 0.95, seed = NULL, refresh = NULL, ...) {
-  if (!inherits(data, "fp_data")) {
-    stop("`data` must be an `fp_data` object; see `fp_data()`.", call. = FALSE)
-  }
+  .check_fp_data(data)
   no_ver <- is.null(data$verified) || nrow(data$verified) == 0
   no_conf <- is.null(data$confirmed) || all(is.na(data$auto[[data$confirmed[1]]]))
   if (no_ver && no_conf) {

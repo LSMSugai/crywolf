@@ -40,9 +40,7 @@ fp_prior_predictive <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
                                 random_fp = FALSE, random_det = FALSE,
                                 priors = fp_priors(),
                                 ndraws = 200, seed = NULL) {
-  if (!inherits(data, "fp_data")) {
-    stop("`data` must be an `fp_data` object; see `fp_data()`.", call. = FALSE)
-  }
+  .check_fp_data(data)
   sl <- .build_stan_data(data, occ, det, fp, random_recorder, priors,
                          random_fp = random_fp, ver = ver, markov = markov,
                          random_det = random_det)

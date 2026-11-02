@@ -1,0 +1,66 @@
+{
+  "schema": "sheepdog-occupancy",
+  "schema_version": 1.3,
+  "created": "2026-11-02T00:00:00-0400",
+  "sheepdog_version": "3.3.2.9000",
+  "classifier": "example",
+  "occasion_unit": "file",
+  "min_confidence": 0.1,
+  "dawn_hour": 12,
+  "sites": ["ARA", "BAI", "NHE", "XAR"],
+  "species": ["Elachistocleis bicolor_ela-bic", "Leptodactylus fuscus_lep-fus", "Physalaemus cuvieri_phy-cuv"],
+  "occasion_covariates": ["temp_z"],
+  "tables": {
+    "occasions": {
+      "file": "occasions.csv",
+      "rows": 354
+    },
+    "detections": {
+      "file": "detections.csv",
+      "rows": 1680
+    },
+    "scores": {
+      "file": "scores.csv",
+      "rows": 602
+    },
+    "validation": {
+      "file": "validation.csv",
+      "rows": 670
+    },
+    "sites": {
+      "file": "sites.csv",
+      "rows": 4
+    },
+    "occasion_draws": {
+      "file": "occasion_draws.parquet",
+      "rows": 12040
+    }
+  },
+  "calibration": {
+    "engine": "brms",
+    "formula": "tp ~ logit_conf + temp_z + (logit_conf | species) + (1 | site:species)",
+    "n_draws": 20,
+    "keys": ["site", "species"],
+    "covariates": ["temp_z"],
+    "covariate_range": {
+      "temp_z": {
+        "min": -2.57419851506092,
+        "max": 2.13837412778977
+      }
+    },
+    "covariate_scaling": {
+      "temp_z": {
+        "center": 21.665,
+        "scale": 2.82223766251689
+      }
+    },
+    "new_levels": "uncertainty"
+  },
+  "occasion_draws": {
+    "file": "occasion_draws.parquet",
+    "rule": "sample",
+    "seed": 2026,
+    "n_draws": 20,
+    "species": ["ela_bic", "lep_fus", "phy_cuv"]
+  }
+}
