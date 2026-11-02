@@ -24,3 +24,5 @@ dev/random-det/jobs/
 # registro local de uso de IA (não publicar)
 AI interaction log.md
 dev/dyn-sim/jobs/
+dev/dyn-kfold/jobs/
+dev/dyn-kfold/stuck/
