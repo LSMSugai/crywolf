@@ -402,11 +402,11 @@ site:species)`. Do lado do crywolf: copiar a fixture para os testes e para
 o `dev/check-sheepdog-fixture.R`, e ler todas as espécies juntas
 (`fp_read_sheepdog(species = NULL)` → `fp_data()` em formato longo; hoje o
 `fp_draws_data()` para com mais de uma espécie). Dados reais para a
-vinheta: o VicFrogNET (Bell et al., Zenodo 10.5281/zenodo.17773400, segundo a sessão do
-sheepdog; não verifiquei) tem
-detecções verificadas de 14 espécies em 14 sítios, mas não tem a lista de
-gravações por sítio (sem ela não há não-detecções); o Diogo decide se pede
-aos autores.
+vinheta (decidido em 02/11/2026, `roadmap-integration.md` do sheepdog): o
+FrogNet (DiverSons, 7 sítios, 2021–2025), num export fora dos repositórios
+dos pacotes, depois do depósito dos dados. O VicFrogNET foi descartado por
+não publicar a lista de gravações por sítio (sem ela não há
+não-detecções).
 
 ### Fase A (2.x, depois do dinâmico): comunidade com falsos positivos por espécie
 
