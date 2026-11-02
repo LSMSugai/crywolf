@@ -11,7 +11,8 @@ fp_priors(
   gap_sd = 1.5,
   recorder_sd = 2,
   fp_site_sd = 1,
-  det_site_sd = 1
+  det_site_sd = 1,
+  species_sd = 1
 )
 }
 \arguments{
@@ -37,6 +38,11 @@ deviation of the site random intercept on the false-positive rate
 \item{det_site_sd}{Scale of the half-Normal(0, sd) prior on the standard
 deviation of the site random intercept on true detection
 (\code{fp_occu(random_det = TRUE)}).}
+
+\item{species_sd}{Scale of the half-Normal(0, sd) priors on the standard
+deviations among species of the multispecies model (\code{\link[=fp_occu_ms]{fp_occu_ms()}}):
+those of the occupancy coefficients and of the detection intercept, on
+the logit scale, and that of the logarithm of the gap.}
 }
 \value{
 A list of class \code{fp_priors}.

@@ -351,6 +351,10 @@ fp_occu <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
 #' @param det_site_sd Scale of the half-Normal(0, sd) prior on the standard
 #'   deviation of the site random intercept on true detection
 #'   (`fp_occu(random_det = TRUE)`).
+#' @param species_sd Scale of the half-Normal(0, sd) priors on the standard
+#'   deviations among species of the multispecies model ([fp_occu_ms()]):
+#'   those of the occupancy coefficients and of the detection intercept, on
+#'   the logit scale, and that of the logarithm of the gap.
 #'
 #' @return A list of class `fp_priors`.
 #' @export
@@ -359,12 +363,13 @@ fp_occu <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
 #' fp_priors(slope_sd = 1)
 fp_priors <- function(intercept_sd = 1.5, slope_sd = 2.5,
                       gap_mean = 2, gap_sd = 1.5, recorder_sd = 2,
-                      fp_site_sd = 1, det_site_sd = 1) {
+                      fp_site_sd = 1, det_site_sd = 1, species_sd = 1) {
   stopifnot(intercept_sd > 0, slope_sd > 0, gap_sd > 0, recorder_sd > 0,
-            fp_site_sd > 0, det_site_sd > 0)
+            fp_site_sd > 0, det_site_sd > 0, species_sd > 0)
   structure(list(intercept_sd = intercept_sd, slope_sd = slope_sd,
                  gap_mean = gap_mean, gap_sd = gap_sd, recorder_sd = recorder_sd,
-                 fp_site_sd = fp_site_sd, det_site_sd = det_site_sd),
+                 fp_site_sd = fp_site_sd, det_site_sd = det_site_sd,
+                 species_sd = species_sd),
             class = "fp_priors")
 }
 
@@ -377,6 +382,10 @@ print.fp_priors <- function(x, ...) {
   cat(sprintf("  sd_recorder     ~ half-Normal(0, %g)\n", x$recorder_sd))
   cat(sprintf("  sd_fp_site      ~ half-Normal(0, %g)\n", x$fp_site_sd))
   cat(sprintf("  sd_det_site     ~ half-Normal(0, %g)\n", x$det_site_sd))
+  # priors saved before this one existed
+  if (!is.null(x$species_sd)) {
+    cat(sprintf("  sd among species ~ half-Normal(0, %g) (fp_occu_ms())\n", x$species_sd))
+  }
   invisible(x)
 }
 

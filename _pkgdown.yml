@@ -35,6 +35,7 @@ reference:
     contents:
       - fp_occu
       - fp_occu_dyn
+      - fp_occu_ms
       - fp_occu_mc
       - fp_draws_data
       - fp_priors

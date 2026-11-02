@@ -76,7 +76,10 @@ results may change in a minor version; the NEWS will say so. Each says
 so in its help. \code{\link[=fp_occu_dyn]{fp_occu_dyn()}}, the dynamic (multi-season) model, with
 the \code{fp_occu_dyn} class and its methods, and its simulator
 \code{\link[=simulate_fp_dyn]{simulate_fp_dyn()}}, are experimental in the same way; the \code{season} and \code{season_covs} arguments of \code{\link[=fp_data]{fp_data()}} that feed
-it are stable. \code{\link[=fp_read_sheepdog]{fp_read_sheepdog()}}, by contrast, reads a versioned
+it are stable. \code{\link[=fp_occu_ms]{fp_occu_ms()}}, the multispecies model, with the
+\code{fp_occu_ms} class and its methods, is in development and experimental
+in the same way, as is the \code{species} argument of \code{\link[=fp_data]{fp_data()}} that
+feeds it. \code{\link[=fp_read_sheepdog]{fp_read_sheepdog()}}, by contrast, reads a versioned
 export format (\code{sheepdog-occupancy}, schema 1) and is stable.
 }
 

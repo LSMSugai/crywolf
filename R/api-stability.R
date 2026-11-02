@@ -66,7 +66,10 @@
 #' so in its help. [fp_occu_dyn()], the dynamic (multi-season) model, with
 #' the `fp_occu_dyn` class and its methods, and its simulator
 #' [simulate_fp_dyn()], are experimental in the same way; the `season` and `season_covs` arguments of [fp_data()] that feed
-#' it are stable. [fp_read_sheepdog()], by contrast, reads a versioned
+#' it are stable. [fp_occu_ms()], the multispecies model, with the
+#' `fp_occu_ms` class and its methods, is in development and experimental
+#' in the same way, as is the `species` argument of [fp_data()] that
+#' feeds it. [fp_read_sheepdog()], by contrast, reads a versioned
 #' export format (`sheepdog-occupancy`, schema 1) and is stable.
 #'
 #' @name crywolf-api
