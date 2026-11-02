@@ -1,6 +1,6 @@
 # crywolf (development version)
 
-## Multispecies data (in development)
+## Multispecies model (in development)
 
 * `fp_data()` gains `species`, the column of the species, for the
   multispecies model in development: one row per occasion and species. It
