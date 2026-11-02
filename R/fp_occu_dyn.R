@@ -56,7 +56,9 @@
 #'   `diagnostics` and `call`. Its methods are `print()`, `summary()`,
 #'   `as_draws_df()` and `simulate()`; [fp_sites()] gives the occupancy of
 #'   each site-season and [fp_ppc()] checks the fit.
-#' @seealso [fp_data()], [fp_occu()], [simulate_fp_dyn()], [crywolf-output]
+#' @seealso [fp_data()], [fp_occu()], [simulate_fp_dyn()], [crywolf-output];
+#'   `vignette("dynamic")` fits it to the `curiango` data, with the nights
+#'   of each site as seasons.
 #' @export
 #' @examples
 #' \dontrun{
