@@ -290,3 +290,50 @@ test_that("a calibration with continuous covariates gives sheepdog's histories",
                  "2 occasion\\(s\\) with predictions are not in `occasions`")
   expect_equal(nrow(v[[1]]$auto), sum(keep))
 })
+
+test_that("an export of several species gives the data of all of them", {
+  skip_if_not_installed("jsonlite")
+  skip_if_not_installed("arrow")
+  # sp_two is never true under any draw
+  dir <- write_cal_export(file.path(tempdir(), "cal-export-ms"), edit = function(g) {
+    rbind(g, transform(g, species = "sp_two", p_tp = 0))
+  })
+  det <- utils::read.csv(file.path(dir, "detections.csv"))
+  two <- transform(det[1:2, ], species_code = "Sp two_sp-two", species = "sp_two")
+  utils::write.csv(rbind(det, two), file.path(dir, "detections.csv"), row.names = FALSE)
+  x <- fp_read_sheepdog(dir, species = c("sp_one", "sp_two"))
+  v <- suppressWarnings(fp_draws_data(x, rule = "threshold", p_min = 0.5))
+  d <- v[[1]]
+  expect_equal(d$species, "species")
+  expect_equal(d$species_names, c("sp_one", "sp_two"))
+  expect_equal(d$auto$species, rep(c("sp_one", "sp_two"), each = 4))
+  # draw 3: every prediction of sp_one is true
+  expect_equal(d$auto$y, c(1, 0, 1, 1, 0, 0, 0, 0))
+  expect_equal(unname(d$known_present[, "sp_one"]), c(0L, 1L))
+  expect_equal(unname(d$known_present[, "sp_two"]), c(0L, 0L))
+})
+
+test_that("the multispecies export of sheepdog gives its histories", {
+  skip_if_not_installed("jsonlite")
+  skip_if_not_installed("arrow")
+  # written by sheepdog (sheepdog#74), schema 1.3: three species, one of them
+  # rare, calibration with a continuous covariate, 20 histories drawn
+  dir <- test_path("fixtures", "sheepdog-export-1.3-ms")
+  schema <- jsonlite::read_json(file.path(dir, "schema.json"), simplifyVector = TRUE)
+  x <- suppressWarnings(fp_read_sheepdog(dir, species = schema$species))
+  expect_equal(sort(unique(x$detections$species)), c("ela_bic", "lep_fus", "phy_cuv"))
+  v <- suppressWarnings(fp_draws_data(x, n_draws = 2))
+  expect_length(v, 2)
+  d <- v[[2]]
+  expect_equal(d$species_names, c("ela_bic", "lep_fus", "phy_cuv"))
+  expect_equal(nrow(d$auto), 3 * nrow(x$occasions))
+  # the histories are those of occasion_draws.parquet, 0 where absent
+  od <- as.data.frame(arrow::read_parquet(file.path(dir, "occasion_draws.parquet")))
+  od <- od[od$draw == attr(v, "draws")[2], ]
+  key <- function(t) paste(t$site, t$occasion_id, t$species)
+  expect_equal(d$auto$y[match(key(od), key(d$auto))], od$y)
+  expect_equal(sum(d$auto$y), sum(od$y, na.rm = TRUE))
+  # the rare species is found only at ARA and BAI
+  tab <- crywolf:::.species_table(d)
+  expect_lte(tab$sites_detected[tab$species == "lep_fus"], 2)
+})

@@ -52,6 +52,15 @@
 #'   the season column named by `season` and, for covariates that vary among
 #'   sites too, the site column; one row per season, or per site and season.
 #'   Seasons added between dates need rows only if a formula uses them.
+#' @param species Optional name of a column of `auto` (and of `verified`, if
+#'   given) holding the species, for the multispecies model, which is in
+#'   development. The tables are then in long format by species too: one
+#'   row per occasion and species, with every surveyed occasion present for
+#'   every species (`y = 0` where the species was not detected), since the
+#'   non-detections are data. The species are the levels of a factor, and
+#'   otherwise the sorted values of `auto` and `verified`. It cannot be
+#'   combined with `season` yet, and the single-species models refuse such
+#'   data.
 #'
 #' @details
 #' Besides errors for data that cannot be fitted, `fp_data()` warns about
@@ -64,7 +73,12 @@
 #' any site (unused levels of a factor, or dates added between the first
 #' and the last), about seasons without verified or confirmed data, in which
 #' colonization and extinction are hard to tell from false positives, and
-#' about seasons at unequal intervals that could not be filled in.
+#' about seasons at unequal intervals that could not be filled in. With
+#' `species`, it warns about species never detected by the automated method,
+#' species without any verified detection, whose false-positive rates are
+#' then informed only by the other species and the priors, and sites where
+#' the species have unequal numbers of occasions (often occasions without a
+#' detection left out for some species).
 #' [fp_aggregate()] builds `auto` from classifier output.
 #'
 #' @return An object of class `fp_data`: a list with the tables `auto`,
@@ -74,7 +88,8 @@
 #'   detection or confirmed true observation, and, with `season`, the
 #'   seasons in time order in `seasons`, the step between dates in days in
 #'   `season_step` (`NULL` for seasons that are not dates) and the table
-#'   `season_covs`.
+#'   `season_covs`. With `species`, the species in `species_names`, and
+#'   `known_present` is a matrix of sites by species.
 #' @references
 #' Chambert, T., Miller, D. A. W., & Nichols, J. D. (2015). Modeling false
 #' positive detections in species occurrence data under different study
@@ -91,8 +106,8 @@
 #' d
 fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
                     recorder = NULL, confirmed = NULL, season = NULL,
-                    season_covs = NULL) {
-  .check_df(auto, "auto", c(site, y, recorder, confirmed, season))
+                    season_covs = NULL, species = NULL) {
+  .check_df(auto, "auto", c(site, y, recorder, confirmed, season, species))
   .check_df(sites, "sites", site)
   if (anyDuplicated(sites[[site]])) {
     stop("`sites` must have one row per site; duplicated identifiers found in `",
@@ -103,7 +118,7 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   .check_sites_known(auto[[site]], sites[[site]], "auto", site)
 
   if (!is.null(verified)) {
-    .check_df(verified, "verified", c(site, y, season))
+    .check_df(verified, "verified", c(site, y, season, species))
     verified <- verified[!is.na(verified[[y]]), , drop = FALSE]
     .check_binary(verified[[y]], "verified")
     .check_sites_known(verified[[site]], sites[[site]], "verified", site)
@@ -113,6 +128,13 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   }
 
   if (!is.null(confirmed)) .check_confirmed(auto, confirmed, y)
+  species_names <- NULL
+  if (!is.null(species)) {
+    if (!is.null(season)) {
+      stop("`species` and `season` cannot be combined yet.", call. = FALSE)
+    }
+    species_names <- .species_levels(auto, verified, species)
+  }
   seasons <- season_step <- NULL
   if (!is.null(season)) {
     seasons <- .season_levels(auto, verified, season)
@@ -124,22 +146,26 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
   if (!is.null(season_covs)) .check_season_covs(season_covs, season, seasons, sites, site)
   .warn_design(auto, sites, verified, site, y, confirmed)
   if (!is.null(season)) .warn_seasons(auto, verified, confirmed, season, seasons)
+  if (!is.null(species)) .warn_species(auto, verified, site, y, species, species_names)
 
-  known_present <- rep(0L, nrow(sites))
-  if (!is.null(verified) && nrow(verified) > 0) {
-    hit <- unique(verified[[site]][verified[[y]] == 1])
-    known_present[match(hit, sites[[site]])] <- 1L
+  # sites (by species) with a verified detection or a confirmed true
+  # observation
+  known_present <- matrix(0L, nrow(sites), max(1L, length(species_names)),
+                          dimnames = list(NULL, species_names))
+  mark <- function(d, rows) {
+    sp <- if (is.null(species)) 1L else match(as.character(d[[species]][rows]), species_names)
+    known_present[cbind(match(d[[site]][rows], sites[[site]]), sp)] <<- 1L
   }
-  if (!is.null(confirmed)) {
-    hit <- unique(auto[[site]][which(auto[[confirmed[1]]] > 0)])
-    known_present[match(hit, sites[[site]])] <- 1L
-  }
+  if (!is.null(verified) && nrow(verified) > 0) mark(verified, verified[[y]] == 1)
+  if (!is.null(confirmed)) mark(auto, which(auto[[confirmed[1]]] > 0))
+  if (is.null(species)) known_present <- known_present[, 1]
 
   structure(
     list(auto = auto, verified = verified, sites = sites,
          site = site, y = y, recorder = recorder, confirmed = confirmed,
          known_present = known_present, season = season, seasons = seasons,
-         season_step = season_step, season_covs = season_covs),
+         season_step = season_step, season_covs = season_covs,
+         species = species, species_names = species_names),
     class = "fp_data"
   )
 }
@@ -215,11 +241,15 @@ fp_data_wide <- function(y_auto, y_verified = NULL, site_covs = NULL,
 print.fp_data <- function(x, ...) {
   ns <- nrow(x$sites)
   nver_sites <- if (is.null(x$verified)) 0L else length(unique(x$verified[[x$site]]))
-  naive_auto <- mean(tapply(x$auto[[x$y]], x$auto[[x$site]], max))
+  by <- list(x$auto[[x$site]])
+  if (!is.null(x$species)) by <- c(by, list(x$auto[[x$species]]))
+  # by site (and species): sites x species without occasions are NA
+  naive_auto <- mean(tapply(x$auto[[x$y]], by, max), na.rm = TRUE)
   cat("<fp_data>\n")
   cat(sprintf("  sites:                  %d\n", ns))
   cat(sprintf("  automated occasions:    %d (naive occupancy %.2f)\n",
               nrow(x$auto), naive_auto))
+  if (!is.null(x$species)) cat(sprintf("  species:                %d\n", length(x$species_names)))
   ver_det <- if (is.null(x$verified)) character(0) else
     unique(x$verified[[x$site]][x$verified[[x$y]] == 1])
   cat(sprintf("  verified sites:         %d (%d occasions; verified detections at %d sites)\n",
@@ -231,7 +261,8 @@ print.fp_data <- function(x, ...) {
     cat(sprintf("  confirmed occasions:    %d (%d with a true observation, at %d sites)\n",
                 sum(!is.na(n_true)), sum(n_true > 0, na.rm = TRUE), length(true_sites)))
   }
-  cat(sprintf("  sites known occupied:   %d\n", sum(x$known_present)))
+  cat(if (is.null(x$species)) "  sites known occupied:   " else "  site x species known occupied: ",
+      sum(x$known_present), "\n", sep = "")
   if (!is.null(x$recorder)) {
     cat(sprintf("  recorders:              %d\n", length(unique(x$auto[[x$recorder]]))))
   }
@@ -245,14 +276,31 @@ print.fp_data <- function(x, ...) {
   covs <- setdiff(names(x$sites), x$site)
   if (length(covs)) cat("  site covariates:       ", paste(covs, collapse = ", "), "\n")
   ocovs <- setdiff(names(x$auto), c(x$site, x$y, x$recorder, x$confirmed,
-                                    x$season, "occasion"))
+                                    x$season, x$species, "occasion"))
   if (length(ocovs)) cat("  observation covariates:", paste(ocovs, collapse = ", "), "\n")
   scovs <- setdiff(names(x$season_covs), c(x$site, x$season))
   if (length(scovs)) cat("  season covariates:     ", paste(scovs, collapse = ", "), "\n")
+  if (!is.null(x$species)) {
+    cat("  by species:\n")
+    print(.species_table(x), row.names = FALSE)
+  }
   invisible(x)
 }
 
 # validation helpers ----------------------------------------------------------
+
+# the data of the single-species models
+.check_fp_data <- function(data) {
+  if (!inherits(data, "fp_data")) {
+    stop("`data` must be an `fp_data` object; see `fp_data()`.", call. = FALSE)
+  }
+  if (!is.null(data$species)) {
+    stop("`data` holds several species (`fp_data(species = )`), for the ",
+         "multispecies model; keep the rows of one species to fit it alone.",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
 
 .check_df <- function(df, what, cols) {
   if (!is.data.frame(df)) stop("`", what, "` must be a data frame.", call. = FALSE)
@@ -415,6 +463,70 @@ print.fp_data <- function(x, ...) {
   }
   first <- !duplicated(data.frame(s_all, t_all))
   tabulate(t_all[first], nbins = length(x$seasons))
+}
+
+# the species: the levels of a factor, otherwise the sorted values of `auto`
+# and `verified` together, as text
+.species_levels <- function(auto, verified, species) {
+  a <- auto[[species]]
+  v <- if (is.null(verified)) NULL else verified[[species]]
+  if (anyNA(a) || anyNA(v)) {
+    stop("Column `", species, "` has missing values.", call. = FALSE)
+  }
+  if (!is.factor(a)) return(sort(unique(as.character(c(a, v)))))
+  bad <- setdiff(as.character(v), levels(a))
+  if (length(bad)) {
+    stop("Species in `verified` are not levels of `auto$", species, "` (e.g. ",
+         paste(utils::head(bad, 3), collapse = ", "), ").", call. = FALSE)
+  }
+  levels(a)
+}
+
+# per species: automated occasions and detections, sites with an automated
+# detection, naive occupancy, verified occasions and detections
+.species_table <- function(x) {
+  sp <- factor(as.character(x$auto[[x$species]]), levels = x$species_names)
+  det <- x$auto[[x$y]] == 1
+  n_sites <- function(rows) {
+    vapply(split(x$auto[[x$site]][rows], sp[rows]), function(s) length(unique(s)), 1L)
+  }
+  vsp <- if (is.null(x$verified)) factor(character(0), levels = x$species_names) else
+    factor(as.character(x$verified[[x$species]]), levels = x$species_names)
+  vdet <- if (is.null(x$verified)) logical(0) else x$verified[[x$y]] == 1
+  data.frame(species = x$species_names,
+             occasions = as.vector(table(sp)),
+             detections = as.vector(tapply(det, sp, sum, default = 0L)),
+             sites_detected = n_sites(det),
+             naive_occ = round(n_sites(det) / pmax(n_sites(rep(TRUE, length(sp))), 1), 2),
+             verified = as.vector(table(vsp)),
+             verified_det = as.vector(tapply(vdet, vsp, sum, default = 0L)))
+}
+
+.warn_species <- function(auto, verified, site, y, species, species_names) {
+  warn <- .design_warning
+  sp <- factor(as.character(auto[[species]]), levels = species_names)
+  some <- function(nm) paste0(" (e.g. ", paste(utils::head(nm, 3), collapse = ", "), ")")
+  never <- species_names[tapply(auto[[y]] == 1, sp, sum, default = 0L) == 0]
+  if (length(never)) {
+    warn(length(never), " species have no automated detection", some(never),
+         "; their occupancy is informed mostly by the other species.")
+  }
+  vdet <- if (is.null(verified)) character(0) else
+    as.character(verified[[species]][verified[[y]] == 1])
+  unver <- setdiff(species_names, vdet)
+  if (length(unver)) {
+    warn(length(unver), " species have no verified detection", some(unver),
+         "; their false-positive rates are informed only by the other species ",
+         "and the priors.")
+  }
+  n <- table(auto[[site]], sp)
+  uneven <- rownames(n)[apply(n, 1, function(r) length(unique(r)) > 1)]
+  if (length(uneven)) {
+    warn(length(uneven), " site(s) have unequal numbers of occasions among species",
+         some(uneven), "; every surveyed occasion should be present for every ",
+         "species, with y = 0 where it was not detected.")
+  }
+  invisible(TRUE)
 }
 
 .warn_seasons <- function(auto, verified, confirmed, season, seasons) {

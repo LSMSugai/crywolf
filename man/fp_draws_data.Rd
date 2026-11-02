@@ -17,7 +17,8 @@ fp_draws_data(
 }
 \arguments{
 \item{x}{An export read by \code{\link[=fp_read_sheepdog]{fp_read_sheepdog()}}, with calibration draws.
-Read it with \code{species} set to the target species.}
+Read it with \code{species} set to the target species, or to several species
+for the multispecies model (see Value).}
 
 \item{rule}{How a prediction is judged true under a draw with
 probability \code{p} of being true: \code{"sample"} (default) draws it true with
@@ -46,7 +47,11 @@ of the model.}
 }
 \value{
 A list of \code{\link[=fp_data]{fp_data()}} objects, one per calibration draw, with
-the attributes \code{draws} (the draw identifiers) and \code{rule}.
+the attributes \code{draws} (the draw identifiers) and \code{rule}. When the
+detections hold several species, each version has every occasion once
+per species, with the column \code{species} (the short codes of sheepdog),
+as \code{fp_data(species = "species")}; the species are those with
+predictions.
 }
 \description{
 Builds one version of the data per posterior draw of the calibration

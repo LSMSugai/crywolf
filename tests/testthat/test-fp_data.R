@@ -58,3 +58,49 @@ test_that("print separates verified sites, confirmed occasions, and known occupa
   expect_true(any(grepl(paste0("at ", true_sites, " sites\\)"), out)))
   expect_true(any(grepl(paste0("sites known occupied: +", sum(s$data$known_present)), out)))
 })
+
+test_that("fp_data holds several species in long format", {
+  sites <- data.frame(site = 1:3)
+  auto <- expand.grid(site = 1:3, occasion = 1:2, sp = c("b", "a"),
+                      stringsAsFactors = FALSE)
+  auto$y <- c(1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0)
+  ver <- data.frame(site = c(1, 2), sp = c("b", "a"), y = c(1, 0))
+  w <- character()
+  d <- withCallingHandlers(fp_data(auto, sites, ver, species = "sp"),
+                           warning = function(c) {
+                             w <<- c(w, conditionMessage(c))
+                             invokeRestart("muffleWarning")
+                           })
+  expect_match(w, "1 species have no automated detection \\(e.g. a\\)", all = FALSE)
+  expect_match(w, "1 species have no verified detection \\(e.g. a\\)", all = FALSE)
+  expect_equal(d$species_names, c("a", "b"))
+  expect_equal(d$known_present,
+               matrix(c(0L, 0L, 0L, 1L, 0L, 0L), 3, dimnames = list(NULL, c("a", "b"))))
+  tab <- crywolf:::.species_table(d)
+  expect_equal(tab$detections, c(0, 3))
+  expect_equal(tab$sites_detected, c(0, 2))
+  expect_equal(tab$verified_det, c(0, 1))
+  expect_output(print(d), "by species")
+  # a factor sets the species and their order
+  auto$sp <- factor(auto$sp, levels = c("b", "a", "c"))
+  d <- suppressWarnings(fp_data(auto, sites, ver, species = "sp"))
+  expect_equal(colnames(d$known_present), c("b", "a", "c"))
+})
+
+test_that("fp_data with species checks the layout and refuses other uses", {
+  sites <- data.frame(site = 1:2)
+  auto <- data.frame(site = c(1, 1, 2, 2, 1), sp = c("a", "b", "a", "b", "a"),
+                     y = c(1, 0, 1, 1, 0), night = 1)
+  ver <- data.frame(site = 1:2, sp = c("a", "b"), y = 1)
+  expect_warning(d <- fp_data(auto, sites, ver, species = "sp"),
+                 "unequal numbers of occasions among species \\(e.g. 1\\)")
+  expect_error(fp_data(auto, sites, species = "sp", season = "night"), "cannot be combined")
+  expect_error(fp_data(auto, sites, ver[, c("site", "y")], species = "sp"), "lacks column")
+  expect_error(fp_data(transform(auto, sp = NA), sites, species = "sp"), "missing values")
+  expect_error(fp_data(transform(auto, sp = factor(sp)), sites,
+                       transform(ver, sp = "z"), species = "sp"), "not levels")
+  expect_error(fp_occu_dyn(d), "season column")
+  expect_error(fp_occu(d), "several species")
+  expect_error(fp_prior_predictive(d), "several species")
+  expect_error(fp_occu_mc(list(d, d)), "several species")
+})

@@ -109,6 +109,7 @@ fp_occu_mc <- function(data_list, ..., seed = NULL, parallel = FALSE,
       !all(purrr::map_lgl(data_list, inherits, "fp_data"))) {
     stop("`data_list` must be a list of `fp_data` objects.", call. = FALSE)
   }
+  .check_fp_data(data_list[[1]])
   dots <- list(...)
   if (!is.numeric(max_rhat) || length(max_rhat) != 1 || is.na(max_rhat) || max_rhat < 1) {
     stop("`max_rhat` must be a single number of at least 1 (Inf keeps every fit).",

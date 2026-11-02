@@ -51,9 +51,7 @@
 #'                  data = umf)
 fp_to_unmarked <- function(data, obs_covs = NULL, occasion = NULL) {
   .require_pkg("unmarked")
-  if (!inherits(data, "fp_data")) {
-    stop("`data` must be an `fp_data` object; see `fp_data()`.", call. = FALSE)
-  }
+  .check_fp_data(data)
   if (!is.null(data$confirmed)) {
     stop("Data of the observation-confirmation design cannot be passed to ",
          "occuFP(); fit them with fp_occu().", call. = FALSE)

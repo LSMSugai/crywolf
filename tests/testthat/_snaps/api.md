@@ -7,7 +7,7 @@
       fp_calibrate(design, models = list(constant = ~1), occ = ~x, det = ~1, reps = 50, prob = 0.95, base_seed = 1L, parallel = FALSE, fit_args = list(chains = 4, parallel_chains = 1, iter_warmup = 1000, iter_sampling = 1000, adapt_delta = 0.95))
       fp_calibrate_fit(fit, models = list(fitted = fit$formulas$fp), reps = 50, truth = c("mean", "posterior"), prob = 0.95, base_seed = 1L, parallel = FALSE, fit_args = list(chains = 4, parallel_chains = 1, iter_warmup = 1000, iter_sampling = 1000, adapt_delta = 0.95))
       fp_compile(force = FALSE, quiet = TRUE)
-      fp_data(auto, sites, verified = NULL, site = "site", y = "y", recorder = NULL, confirmed = NULL, season = NULL, season_covs = NULL)
+      fp_data(auto, sites, verified = NULL, site = "site", y = "y", recorder = NULL, confirmed = NULL, season = NULL, season_covs = NULL, species = NULL)
       fp_data_wide(y_auto, y_verified = NULL, site_covs = NULL, obs_covs = NULL, recorder = NULL)
       fp_effects(object, covariate, process = c("occ", "fp"), values = NULL, transform = NULL, prob = 0.95)
       fp_gap_prior(n_true, n_false, p11, psi, ndraws = 4000, ...)
