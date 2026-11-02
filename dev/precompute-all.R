@@ -16,7 +16,7 @@ scripts <- c("precompute-vignette.R", "precompute-calibration.R",
              "precompute-sbc.R", "precompute-sbc-random-det.R",
              "precompute-fp-variation.R", "precompute-markov.R",
              "precompute-curiango-random-det.R", "precompute-threshold.R",
-             "precompute-threshold-fp.R")
+             "precompute-threshold-fp.R", "precompute-dynamic.R")
 run <- function(script, args = character()) {
   message("== ", script, " ", paste(args, collapse = " "), " (", format(Sys.time()), ")")
   status <- system2("Rscript", c(file.path("dev", script), args))

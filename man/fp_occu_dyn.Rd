@@ -122,5 +122,7 @@ head(fp_sites(m))   # one row per site-season
 }
 }
 \seealso{
-\code{\link[=fp_data]{fp_data()}}, \code{\link[=fp_occu]{fp_occu()}}, \code{\link[=simulate_fp_dyn]{simulate_fp_dyn()}}, \link{crywolf-output}
+\code{\link[=fp_data]{fp_data()}}, \code{\link[=fp_occu]{fp_occu()}}, \code{\link[=simulate_fp_dyn]{simulate_fp_dyn()}}, \link{crywolf-output};
+\code{vignette("dynamic")} fits it to the \code{curiango} data, with the nights
+of each site as seasons.
 }
