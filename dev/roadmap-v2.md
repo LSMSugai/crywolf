@@ -196,6 +196,13 @@ Release só da integração com o sheepdog, experimental
 (ffd4ffc, d5ddc78), PR #7 (merge f4610c8), DOI de versão
 10.5281/zenodo.23692218. Interface estável sem mudanças.
 
+**Próximo release (decidido em 02/11/2026):** esperar o aceite do 2.1.0 no
+CRAN (submetido em 01/11/2026, em inspeção manual). Depois do aceite,
+trazer o `cran-comments.md` do branch `cran-2.1`, lançar o 2.2.0 no GitHub
+e no Zenodo com o `fp_occu_dyn()` e a vinheta `dynamic`, e submeter o 2.2.0
+ao CRAN uns 1–2 meses depois do aceite do 2.1.0 (a política do CRAN pede
+atualizações espaçadas), talvez já com o começo do multiespécies.
+
 ## Riscos
 
 - O `instantiate` pode não suportar threading do jeito que o pacote usa;
@@ -352,6 +359,26 @@ divergências.
   demais, isto é, conservadora). O intercepto de fp tem p = 0,048. Cinco
   ajustes tiveram divergências.
 
+**Passo 8 feito em 01–02/11/2026 (PR #14, merge 7d2586f; vinheta em PR
+seguinte).** LOO não serve: o log_lik do `fp_occu_dyn()` é por sítio e a
+curiango tem 7 sítios. A comparação com sítio-noites independentes foi por
+validação cruzada em blocos de 7 noites (10 dobras iguais para todos os
+sítios; primeira e última semana sempre no treino, para a grade de noites
+ser a mesma), em `dev/dyn-kfold/`, numa c7a.24xlarge spot (~2 h). Modelos:
+`col`/`ext ~ temp_d + rh_d` (médias diárias entre sítios, que existem em
+todas as noites) contra `occ ~ temp_d + rh_d`, ambos com `det ~ bio + aci`,
+`fp ~ temp + rh` e `random_recorder`. Resultado: elpd dinâmico −
+independente = +191,5 (EP 29,0, provavelmente um pouco pequeno), melhor nas
+10 dobras e nos 7 sítios. O ajuste independente da dobra 8 ficou preso numa
+moda (R-hat 1,54) e foi refeito com outra semente; o elpd quase não mudou.
+Ajuste com todos os dados (`dev/precompute-dynamic.R`, 35 min em 8
+núcleos): uma noite em uso deixa de ser usada com probabilidade 0,23
+(sequências de ~4,4 noites), uma noite sem uso passa a ser usada com 0,045;
+noites úmidas iniciam menos sequências. O PPC dá p = 0, com discrepância
+parecida com a do modelo independente: a falta de ajuste está dentro das
+noites (minutos independentes), não na dinâmica. `markov` com o dinâmico
+não foi ajustado. Vinheta `dynamic` com os resultados pré-computados.
+
 ### Riscos
 
 - Tempo: a observação domina o custo hoje, e ela não muda; o forward
@@ -366,6 +393,20 @@ divergências.
 **Decidido em 22/10/2026:** fica para um 2.x ou para o 3.0.0, sem entrar no
 caminho do 2.0. A API do `fp_occu()` congelada no 2.0 não muda; o modelo
 multiespécies é uma função nova.
+
+**Decidido em 02/11/2026:** a Fase A vem agora, antes da Fase 2 da
+integração (`fp_occu_score()`, `roadmap-integration.md`). Do lado do
+sheepdog (sheepdog#74): fixture `export-1.3-ms` com três espécies (uma
+rara, só em dois sítios) e calibração `(logit_conf | species) + (1 |
+site:species)`. Do lado do crywolf: copiar a fixture para os testes e para
+o `dev/check-sheepdog-fixture.R`, e ler todas as espécies juntas
+(`fp_read_sheepdog(species = NULL)` → `fp_data()` em formato longo; hoje o
+`fp_draws_data()` para com mais de uma espécie). Dados reais para a
+vinheta: o VicFrogNET (Bell et al., Zenodo 10.5281/zenodo.17773400, segundo a sessão do
+sheepdog; não verifiquei) tem
+detecções verificadas de 14 espécies em 14 sítios, mas não tem a lista de
+gravações por sítio (sem ela não há não-detecções); o Diogo decide se pede
+aos autores.
 
 ### Fase A (2.x, depois do dinâmico): comunidade com falsos positivos por espécie
 
