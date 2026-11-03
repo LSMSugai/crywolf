@@ -43,9 +43,11 @@ environmental covariates on occupancy (Royle & Link, 2006).
 
 **crywolf** fits the multiple-methods false-positive occupancy model of Miller
 et al. (2011) in a Bayesian framework, using Stan through the 'cmdstanr'
-interface. In this design, the automated method runs at every site, and a
-subset of its output, or a separate survey, is verified by an expert, so that
-some detections are known to be correct. The verified data tell the model
+interface. In this design, the automated method runs at every site. At a
+subset of sites, an expert also surveys the species by a second method that
+does not depend on the classifier. For example, the expert annotates whole
+recordings, whether or not the classifier flagged them. The detections of this
+verified method are known to be correct. The verified data tell the model
 how often the automated method is wrong. Chambert et al. (2015) and Clare et
 al. (2021) review this and other designs for false-positive error.
 
@@ -114,7 +116,8 @@ Each site $i$ is surveyed $K_i$ times by the automated method, for example $K_i$
 recordings scanned by a classifier. These are the *automated* occasions; each
 gives a detection ($y_{ik} = 1$) or not ($y_{ik} = 0$), and a detection may be a
 false positive. At a subset of sites, an expert also checks $M_i$ occasions,
-for example by listening to clips. These are the *verified* occasions
+for example by annotating whole recordings without looking at the classifier
+output. These are the *verified* occasions
 ($v_{im}$). A verified detection is certain: the species was there.
 
 ### Simulated data
