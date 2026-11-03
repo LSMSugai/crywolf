@@ -15,7 +15,7 @@
       fp_occu(data, occ = ~1, det = ~1, fp = ~1, random_recorder = !is.null(data$recorder), ver = ~1, markov = NULL, random_fp = FALSE, random_det = FALSE, priors = fp_priors(), chains = 4, parallel_chains = chains, threads_per_chain = "auto", iter_warmup = 1000, iter_sampling = 1000, adapt_delta = 0.95, seed = NULL, refresh = NULL, ...)
       fp_ppc(object, method = c("automated", "verified"), fit_stat = c("freeman-tukey", "chi-squared"), ndraws = 1000, seed = NULL)
       fp_prior_predictive(data, occ = ~1, det = ~1, fp = ~1, ver = ~1, markov = NULL, random_recorder = !is.null(data$recorder), random_fp = FALSE, random_det = FALSE, priors = fp_priors(), ndraws = 200, seed = NULL)
-      fp_priors(intercept_sd = 1.5, slope_sd = 2.5, gap_mean = 2, gap_sd = 1.5, recorder_sd = 2, fp_site_sd = 1, det_site_sd = 1)
+      fp_priors(intercept_sd = 1.5, slope_sd = 2.5, gap_mean = 2, gap_sd = 1.5, recorder_sd = 2, fp_site_sd = 1, det_site_sd = 1, species_sd = 1)
       fp_read_birdnet(path, pattern = "\\.txt$", recursive = TRUE, tz = "UTC")
       fp_read_sheepdog(path, species = NULL, keep_top = FALSE)
       fp_read_validation(path)

@@ -174,6 +174,20 @@ its truth fields are \code{pars} (named generating coefficients), \code{z},
 \code{p10_site}, and \code{p10_bar}.
 }
 
+\section{Multispecies model (in development)}{
+
+\code{\link[=fp_occu_ms]{fp_occu_ms()}} gives the community means under the names above
+(\verb{occ_*}, \verb{det_*}, \verb{fp_*}, \code{fp_gap}, which is the median gap among
+species, and \code{p11_ref}, \code{p10_ref} at the community means), the
+standard deviations among species as \verb{sd_occ_<term>},
+\code{sd_det_(Intercept)} and \code{sd_log_fp_gap} (of the logarithm of the gap),
+and the values of each species with its name in brackets:
+\verb{occ_<term>[species]}, \code{det_(Intercept)[species]}, \code{fp_gap[species]},
+\code{p11_ref[species]} and \code{p10_ref[species]}. It has no \code{p10_bar}.
+\code{log_lik[i]} is the log-likelihood of unit \code{i}, site
+\code{(i - 1) \%/\% nspecies + 1} and species \code{(i - 1) \%\% nspecies + 1}.
+}
+
 \section{Dynamic model (experimental)}{
 
 \code{\link[=fp_occu_dyn]{fp_occu_dyn()}} uses the names above, except that the coefficients of

@@ -53,8 +53,8 @@
 #'   sites too, the site column; one row per season, or per site and season.
 #'   Seasons added between dates need rows only if a formula uses them.
 #' @param species Optional name of a column of `auto` (and of `verified`, if
-#'   given) holding the species, for the multispecies model, which is in
-#'   development. The tables are then in long format by species too: one
+#'   given) holding the species, for the multispecies model
+#'   [fp_occu_ms()], which is in development. The tables are then in long format by species too: one
 #'   row per occasion and species, with every surveyed occasion present for
 #'   every species (`y = 0` where the species was not detected), since the
 #'   non-detections are data. The species are the levels of a factor, and
@@ -295,8 +295,8 @@ print.fp_data <- function(x, ...) {
     stop("`data` must be an `fp_data` object; see `fp_data()`.", call. = FALSE)
   }
   if (!is.null(data$species)) {
-    stop("`data` holds several species (`fp_data(species = )`), for the ",
-         "multispecies model; keep the rows of one species to fit it alone.",
+    stop("`data` holds several species (`fp_data(species = )`); fit them with ",
+         "fp_occu_ms(), or keep the rows of one species to fit it alone.",
          call. = FALSE)
   }
   invisible(TRUE)
