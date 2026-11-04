@@ -79,9 +79,16 @@ test_that("the multispecies likelihood equals that of fp_occu() species by speci
                  ".chain", ".iteration", ".draw")]
     sl_m <- crywolf:::.build_ms_stan_data(s$ms, ~ x, det, fp, TRUE, fp_priors())
     ll_m <- gq("fp_occu_ms", posterior::as_draws_array(pm), sl_m$stan_data)
+    # the same values in the centred parametrization: with community means 0
+    # (gap 1) and standard deviations 1, only the recorder effects change
+    pc <- pm
+    for (u in grep("^u_raw", names(pc), value = TRUE)) pc[[u]] <- pc[[u]] * pc$sigma_u
+    sl_c <- crywolf:::.build_ms_stan_data(s$ms, ~ x, det, fp, TRUE, fp_priors(), centered = TRUE)
+    ll_c <- gq("fp_occu_ms", posterior::as_draws_array(pc), sl_c$stan_data)
     a <- cbind(ll_a, ll_b)
-    b <- ll_m[, c(seq(1, by = 2, length.out = 40), seq(2, by = 2, length.out = 40))]
-    max(abs(a - b) / pmax(1, abs(a)))
+    by_species <- c(seq(1, by = 2, length.out = 40), seq(2, by = 2, length.out = 40))
+    max(abs(a - ll_m[, by_species]) / pmax(1, abs(a)),
+        abs(a - ll_c[, by_species]) / pmax(1, abs(a)))
   }
   s <- ms_sim(3)
   gaps <- c(site_fp = gap(s, ~ bio, ~ x), occasion_fp = gap(s, ~ bio, ~ aci))
@@ -111,4 +118,24 @@ test_that("a short multispecies fit has readable names and methods", {
   expect_output(print(m), "2 species at 40 sites")
   expect_s3_class(summary(m), "summary.fp_occu")
   expect_identical(as_draws_df(m), m$draws)
+})
+
+test_that("the centred parametrization gives the same posterior", {
+  skip_if_no_cmdstan()
+  s <- ms_sim(5)
+  fit <- function(centered) {
+    suppressWarnings(fp_occu_ms(s$ms, occ = ~ 1, det = ~ 1, random_recorder = TRUE,
+                                centered = centered, chains = 2, iter_warmup = 500,
+                                iter_sampling = 1000, threads_per_chain = 1, seed = 2,
+                                refresh = 0, show_messages = FALSE))
+  }
+  a <- fit(FALSE)
+  b <- fit(TRUE)
+  expect_identical(b$stan_data$centered, 1L)
+  v <- c("p11_ref[a]", "p10_ref[b]", "occ_(Intercept)[a]", "fp_gap[b]", "sd_recorder")
+  da <- as.data.frame(a$draws)[, v]
+  db <- as.data.frame(b$draws)[, v]
+  gap <- (colMeans(da) - colMeans(db)) / vapply(da, stats::sd, numeric(1))
+  expect_lt(max(abs(gap)), 0.3)
+  expect_error(fp_occu_ms(s$ms, centered = 1), "must be TRUE or FALSE")
 })

@@ -30,6 +30,12 @@
 #'   standard deviations among species have the half-Normal priors of
 #'   `fp_priors(species_sd = )`; the community means have the priors of the
 #'   intercepts, slopes and gap of [fp_priors()].
+#' @param centered Use the centred parametrization of the detection
+#'   intercepts, gaps and recorder effects? The model is the same. `TRUE`
+#'   suits passive acoustic monitoring, with thousands of occasions per
+#'   species: their posteriors are then so narrow that the default takes very
+#'   small steps and reaches the maximum tree depth. Keep `FALSE` with few
+#'   occasions per species or recorder.
 #' @param chains,parallel_chains,threads_per_chain,iter_warmup,iter_sampling,adapt_delta,seed,refresh,...
 #'   Passed to the sampler, as in [fp_occu()]. Runs of detections
 #'   (`markov`) and site effects (`random_fp`, `random_det`) are not
@@ -61,13 +67,16 @@
 #' }
 fp_occu_ms <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
                        random_recorder = !is.null(data$recorder),
-                       ver = ~ 1, priors = fp_priors(),
+                       ver = ~ 1, priors = fp_priors(), centered = FALSE,
                        chains = 4, parallel_chains = chains, threads_per_chain = "auto",
                        iter_warmup = 1000, iter_sampling = 1000,
                        adapt_delta = 0.95, seed = NULL, refresh = NULL, ...) {
   if (!inherits(data, "fp_data") || is.null(data$species)) {
     stop("`data` must be an `fp_data` object with a species column; see ",
          "`fp_data(species = )`.", call. = FALSE)
+  }
+  if (!isTRUE(centered) && !isFALSE(centered)) {
+    stop("`centered` must be TRUE or FALSE.", call. = FALSE)
   }
   na <- intersect(names(list(...)), c("markov", "random_fp", "random_det"))
   if (length(na)) {
@@ -83,7 +92,8 @@ fp_occu_ms <- function(data, occ = ~ 1, det = ~ 1, fp = ~ 1,
   cores <- .sampler_cores(threads_per_chain, parallel_chains)
   threads_per_chain <- cores$threads_per_chain
   parallel_chains <- cores$parallel_chains
-  sd_list <- .build_ms_stan_data(data, occ, det, fp, random_recorder, priors, ver = ver)
+  sd_list <- .build_ms_stan_data(data, occ, det, fp, random_recorder, priors, ver = ver,
+                                 centered = centered)
   if (is.null(refresh)) {
     refresh <- if (interactive()) max(1, round((iter_warmup + iter_sampling) / 10)) else 0
   }
@@ -165,7 +175,8 @@ as_draws_df.fp_occu_ms <- function(x, ...) {
 # are the units, so that .build_stan_data() builds the observation model of
 # each unit as fp_occu() builds that of each site, and the occupancy design
 # of each unit from the covariates of its site.
-.build_ms_stan_data <- function(data, occ, det, fp, random_recorder, priors, ver = ~ 1) {
+.build_ms_stan_data <- function(data, occ, det, fp, random_recorder, priors, ver = ~ 1,
+                                centered = FALSE) {
   units <- .ms_units(data)
   sl <- .build_stan_data(units, occ, det, fp, random_recorder, priors, ver = ver)
   nsp <- length(data$species_names)
@@ -177,6 +188,7 @@ as_draws_df.fp_occu_ms <- function(x, ...) {
   sd$sp_unit <- rep(seq_len(nsp), sd$nsite)
   # priors saved before this one existed
   sd$species_sd <- if (is.null(priors$species_sd)) 1 else priors$species_sd
+  sd$centered <- as.integer(centered)
   sl$stan_data <- sd
   sl$design$species <- data$species_names
   sl
