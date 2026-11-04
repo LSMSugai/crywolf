@@ -15,6 +15,7 @@ fp_occu_ms(
   random_recorder = !is.null(data$recorder),
   ver = ~1,
   priors = fp_priors(),
+  centered = FALSE,
   chains = 4,
   parallel_chains = chains,
   threads_per_chain = "auto",
@@ -40,6 +41,13 @@ argument of \code{\link[=fp_data]{fp_data()}}.}
 standard deviations among species have the half-Normal priors of
 \code{fp_priors(species_sd = )}; the community means have the priors of the
 intercepts, slopes and gap of \code{\link[=fp_priors]{fp_priors()}}.}
+
+\item{centered}{Use the centred parametrization of the detection
+intercepts, gaps and recorder effects? The model is the same. \code{TRUE}
+suits passive acoustic monitoring, with thousands of occasions per
+species: their posteriors are then so narrow that the default takes very
+small steps and reaches the maximum tree depth. Keep \code{FALSE} with few
+occasions per species or recorder.}
 
 \item{chains, parallel_chains, threads_per_chain, iter_warmup, iter_sampling, adapt_delta, seed, refresh, ...}{Passed to the sampler, as in \code{\link[=fp_occu]{fp_occu()}}. Runs of detections
 (\code{markov}) and site effects (\code{random_fp}, \code{random_det}) are not

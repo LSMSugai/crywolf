@@ -25,6 +25,11 @@
 // on the logit of p11 (d_det) and of p10 (e_fp), the same offsets as the
 // site effects of fp_occu.stan; gamma0 there is the community intercept
 // alpha[1] - mu_gap, so e_fp = (alpha_s - alpha[1]) - gap_s + mu_gap.
+//
+// With centered = 1 the same model has another parametrization, for species
+// and recorders with many occasions, whose narrow posteriors make the
+// non-centred one take very small steps: za holds alpha_s, zg holds
+// log(gap_s) and u_raw holds u.
 // The sum over units runs with reduce_sum(), as over sites in fp_occu.stan.
 // ============================================================================
 functions {
@@ -124,6 +129,7 @@ data {
   real<lower=0> gap_sd;
   real<lower=0> recorder_sd;                 // half-Normal(0, recorder_sd) on sigma_u
   real<lower=0> species_sd;                  // half-Normal(0, species_sd) on the sds among species
+  int<lower=0, upper=1> centered;            // parametrization of alpha_sp, gap_sp and u
 
 }
 
@@ -230,11 +236,11 @@ parameters {
 }
 
 transformed parameters {
-  vector[nrec] u = sigma_u * u_raw;
+  vector[nrec] u = centered == 1 && estimate_re == 1 ? u_raw : sigma_u * u_raw;
   real gamma0 = alpha[1] - mu_gap;
   matrix[Kbeta, nspecies] beta_sp = rep_matrix(mu_beta, nspecies) + diag_pre_multiply(sigma_beta, zb);
-  vector[nspecies] alpha_sp = alpha[1] + sigma_alpha * za;
-  vector[nspecies] gap_sp = mu_gap * exp(sigma_gap * zg);
+  vector[nspecies] alpha_sp = centered == 1 ? za : alpha[1] + sigma_alpha * za;
+  vector[nspecies] gap_sp = centered == 1 ? exp(zg) : mu_gap * exp(sigma_gap * zg);
 }
 
 model {
@@ -245,11 +251,14 @@ model {
   alpha[1]       ~ normal(0, prior_sd_int);
   if (Kalpha > 1) alpha[2:Kalpha] ~ normal(0, prior_sd_slope);
   sigma_alpha    ~ normal(0, species_sd);
-  za             ~ std_normal();
+  if (centered == 1) za ~ normal(alpha[1], sigma_alpha);
+  else za ~ std_normal();
   mu_gap         ~ normal(gap_mean, gap_sd);
   sigma_gap      ~ normal(0, species_sd);
-  zg             ~ std_normal();
-  u_raw          ~ std_normal();
+  if (centered == 1 && estimate_fp == 1) zg ~ normal(log(mu_gap), sigma_gap);
+  else zg ~ std_normal();
+  if (centered == 1 && estimate_re == 1) u_raw ~ normal(0, sigma_u);
+  else u_raw ~ std_normal();
   sigma_u        ~ normal(0, recorder_sd);
   gamma_fp       ~ normal(0, prior_sd_slope);
   delta0         ~ normal(0, prior_sd_int);
