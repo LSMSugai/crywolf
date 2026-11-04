@@ -1,0 +1,244 @@
+# =============================================================================
+# dev/dyn-val/run_val.R
+# Validation of fp_occu_dyn() beyond dev/dyn-sim/: the designs that study left
+# out, to decide whether the function stops being experimental (criteria in
+# dev/dyn-val/README.md). Data from simulate_fp_dyn(); for calib, randet and
+# markov, its detections are redrawn from its latent states.
+#
+#   lowp    low true detection. 144 cells: p11 in {0.15, 0.30} x p10 in
+#           {0.02, 0.05, 0.10} x verified fraction of site-seasons in {0, 0.1,
+#           0.2, 0.4} x seasons in {3, 6, 10} x occasions in {4, 12}; 100
+#           sites, psi1 = 0.5, col = ext = 0.2, r11 = 0.8. Model fp ~ 1. 30
+#           replicates per cell.
+#   calib   the role of fp_calibrate(), which simulates only with
+#           simulate_fp(). 6 cells: verification in {20% of site-seasons
+#           verified, 10% or 30% of occasions confirmed, as in
+#           observation-confirmation} x slope of logit(p10) on the site
+#           covariate x in {0, 1}; 100 sites x 6 seasons x 4 occasions, p11 =
+#           0.6, p10 = 0.05. Models fp ~ 1 and fp ~ x. 100 replicates.
+#   randet  site effect on logit(p11), sd in {0.5, 1}; 100 sites x 6 seasons x
+#           12 occasions, p11 = 0.4, p10 = 0.05, 20% verified. Models with
+#           and without random_det. 100 replicates.
+#   markov  runs of detections: det_y_prev in {1, 2} on logit(p11), with
+#           occasions in order within each site-season; same design. Models
+#           with and without markov. 100 replicates.
+#   sbc     the simulation-based calibration of dev/dyn-sim/run_sims.R with
+#           new seeds, because its extinction intercept had p = 0.003. 1000
+#           replicates.
+#
+# Every fit: 4 chains of 1000 + 1000 iterations, adapt_delta = 0.95, one core.
+# Seeds: 101001 on, one per task. Each task is saved in dev/dyn-val/jobs/ and
+# skipped on a rerun. Run from the package root, with crywolf installed from
+# this checkout:
+#   WORKERS=16 Rscript dev/dyn-val/run_val.R
+# REPS scales the replicates (REPS = 1: one per cell, for a test); PARTS
+# (default "lowp,calib,randet,markov,sbc") selects the parts. Do not edit this
+# file while it runs: Rscript reads it as it goes.
+# =============================================================================
+
+library(crywolf)
+
+reps <- as.integer(Sys.getenv("REPS", "0"))   # 0: the replicates above
+workers <- as.integer(Sys.getenv("WORKERS", "16"))
+parts <- strsplit(Sys.getenv("PARTS", "lowp,calib,randet,markov,sbc"), ",")[[1]]
+job_dir <- file.path("dev", "dyn-val", "jobs")
+dir.create(job_dir, showWarnings = FALSE, recursive = TRUE)
+n_rep <- function(full) if (reps > 0) reps else full
+
+cells <- list(
+  lowp = expand.grid(p11 = c(0.15, 0.30), p10 = c(0.02, 0.05, 0.10),
+                     frac_verified = c(0, 0.1, 0.2, 0.4), nseason = c(3, 6, 10),
+                     nocc = c(4, 12)),
+  calib = expand.grid(frac_verified = 0.2, frac_confirmed = 0, b_fp = c(0, 1)),
+  randet = data.frame(sd_det = c(0.5, 1)),
+  markov = data.frame(a = c(1, 2)),
+  sbc = data.frame(id = 1)
+)
+cells$calib <- rbind(cells$calib,
+                     expand.grid(frac_verified = 0, frac_confirmed = c(0.1, 0.3),
+                                 b_fp = c(0, 1)))
+full_reps <- c(lowp = 30, calib = 100, randet = 100, markov = 100, sbc = 1000)
+
+tasks <- do.call(rbind, lapply(parts, function(p) {
+  t <- expand.grid(rep = seq_len(n_rep(full_reps[[p]])), cell = seq_len(nrow(cells[[p]])))
+  data.frame(part = p, t)
+}))
+tasks$seed <- 101000 + seq_len(nrow(tasks))
+# longest tasks first, so that the last ones to end are short
+size <- ifelse(tasks$part == "lowp",
+               cells$lowp$nseason[pmin(tasks$cell, nrow(cells$lowp))] *
+                 cells$lowp$nocc[pmin(tasks$cell, nrow(cells$lowp))], 72)
+tasks <- tasks[order(-size), ]
+
+fit_dyn <- function(d, seed, ...) {
+  suppressWarnings(fp_occu_dyn(
+    d, ..., random_recorder = FALSE, chains = 4, parallel_chains = 1,
+    threads_per_chain = 1, iter_warmup = 1000, iter_sampling = 1000,
+    adapt_delta = 0.95, seed = seed, refresh = 0, show_messages = FALSE))
+}
+
+# the sites of auto and its other fields, with new detections
+redraw <- function(s, auto) {
+  d <- s$data
+  suppressWarnings(fp_data(auto, d$sites, d$verified, season = "season",
+                           season_covs = d$season_covs,
+                           confirmed = if ("n_true" %in% names(auto)) c("n_true", "n_false")))
+}
+
+# summary rows of the parameters with a true value, plus psi_fs[t] against
+# the realized occupancy of season t
+summary_rows <- function(m, truth_pars, z) {
+  s <- summary(m)$table
+  real <- stats::setNames(colMeans(z), sprintf("psi_fs[%d]", seq_len(ncol(z))))
+  truth <- c(truth_pars, real)
+  s <- s[s$variable %in% names(truth), c("variable", "mean", "lower", "upper",
+                                         "rhat", "ess_bulk")]
+  s$truth <- unname(truth[s$variable])
+  as.data.frame(s)
+}
+
+# one model fitted to one dataset -> rows, or one row with the error
+fit_rows <- function(model, d, truth, z, seed, ...) {
+  t0 <- Sys.time()
+  m <- tryCatch(fit_dyn(d, seed, ...), error = function(e) e)
+  secs <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+  if (inherits(m, "error")) {
+    return(data.frame(model = model, ok = FALSE, msg = conditionMessage(m),
+                      variable = NA_character_, mean = NA_real_, lower = NA_real_,
+                      upper = NA_real_, rhat = NA_real_, ess_bulk = NA_real_,
+                      truth = NA_real_, divergences = NA_integer_, seconds = secs))
+  }
+  data.frame(model = model, ok = TRUE, msg = NA_character_, summary_rows(m, truth, z),
+             divergences = m$diagnostics$divergences, seconds = secs)
+}
+
+base_pars <- c("psi1_(Intercept)", "col_(Intercept)", "ext_(Intercept)",
+               "det_(Intercept)", "fp_(Intercept)")
+
+run_lowp <- function(cell, seed) {
+  cfg <- cells$lowp[cell, ]
+  s <- simulate_fp_dyn(nsite = 100, nseason = cfg$nseason, nocc = cfg$nocc, psi1 = 0.5,
+                       col = 0.2, ext = 0.2, p11 = cfg$p11, p10 = cfg$p10, r11 = 0.8,
+                       frac_verified = cfg$frac_verified, nver = 2, seed = seed)
+  cbind(cfg, fit_rows("fp", s$data, c(s$truth$pars[base_pars], p10_bar = cfg$p10),
+                      s$truth$z, seed, fp = ~ 1))
+}
+
+run_calib <- function(cell, seed) {
+  cfg <- cells$calib[cell, ]
+  s <- simulate_fp_dyn(nsite = 100, nseason = 6, nocc = 4, psi1 = 0.5, col = 0.2,
+                       ext = 0.2, p11 = 0.6, p10 = 0.05, r11 = 0.8,
+                       frac_verified = cfg$frac_verified, nver = 2, seed = seed)
+  a <- s$data$auto
+  zi <- s$truth$z[cbind(a$site, a$season)]
+  p10 <- stats::plogis(stats::qlogis(0.05) + cfg$b_fp * s$data$sites$x[a$site])
+  if (cfg$frac_confirmed > 0) {
+    true_obs <- stats::rbinom(nrow(a), 1, zi * 0.6)
+    false_obs <- stats::rbinom(nrow(a), 1, p10)
+    a$y <- pmax(true_obs, false_obs)
+    checked <- stats::runif(nrow(a)) < cfg$frac_confirmed
+    a$n_true <- ifelse(checked, true_obs, NA_integer_)
+    a$n_false <- ifelse(checked, false_obs, NA_integer_)
+  } else {
+    a$y <- stats::rbinom(nrow(a), 1, ifelse(zi == 1, 0.6, p10))
+  }
+  d <- redraw(s, a)
+  truth <- c(s$truth$pars[base_pars[1:4]], fp_x = cfg$b_fp,
+             `fp_(Intercept)` = stats::qlogis(0.05), p10_bar = mean(p10))
+  cbind(cfg, rbind(fit_rows("fp_const", d, truth, s$truth$z, seed, fp = ~ 1),
+                   fit_rows("fp_x", d, truth, s$truth$z, seed, fp = ~ x)))
+}
+
+val_sim <- function(seed) {
+  simulate_fp_dyn(nsite = 100, nseason = 6, nocc = 12, psi1 = 0.5, col = 0.2, ext = 0.2,
+                  p11 = 0.4, p10 = 0.05, r11 = 0.8, frac_verified = 0.2, nver = 2,
+                  seed = seed)
+}
+
+run_randet <- function(cell, seed) {
+  cfg <- cells$randet[cell, , drop = FALSE]
+  s <- val_sim(seed)
+  a <- s$data$auto
+  zi <- s$truth$z[cbind(a$site, a$season)]
+  eff <- stats::rnorm(100, 0, cfg$sd_det)
+  a$y <- stats::rbinom(nrow(a), 1, ifelse(zi == 1, stats::plogis(stats::qlogis(0.4) + eff[a$site]),
+                                          0.05))
+  d <- redraw(s, a)
+  truth <- c(s$truth$pars[base_pars], p10_bar = 0.05, sd_det_site = cfg$sd_det)
+  cbind(cfg, rbind(fit_rows("random_det", d, truth, s$truth$z, seed, fp = ~ 1, random_det = TRUE),
+                   fit_rows("no_effect", d, truth, s$truth$z, seed, fp = ~ 1)))
+}
+
+run_markov <- function(cell, seed) {
+  cfg <- cells$markov[cell, , drop = FALSE]
+  s <- val_sim(seed)
+  a <- s$data$auto
+  a <- a[order(a$site, a$season, a$occasion), ]
+  zi <- s$truth$z[cbind(a$site, a$season)]
+  y <- integer(nrow(a))
+  for (i in seq_len(nrow(a))) {
+    prev <- if (a$occasion[i] > 1) y[i - 1] else 0L
+    p <- if (zi[i] == 1) stats::plogis(stats::qlogis(0.4) + cfg$a * prev) else 0.05
+    y[i] <- stats::rbinom(1, 1, p)
+  }
+  a$y <- y
+  d <- redraw(s, a)
+  truth <- c(s$truth$pars[base_pars], p10_bar = 0.05, det_y_prev = cfg$a)
+  cbind(cfg, rbind(fit_rows("markov", d, truth, s$truth$z, seed, fp = ~ 1, markov = "occasion"),
+                   fit_rows("no_markov", d, truth, s$truth$z, seed, fp = ~ 1)))
+}
+
+# as in dev/dyn-sim/run_sims.R: parameters drawn from fp_priors(), and the
+# rank of each true value among 99 thinned posterior draws
+run_sbc <- function(seed) {
+  pr <- fp_priors()
+  set.seed(seed)
+  int <- function() stats::rnorm(1, 0, pr$intercept_sd)
+  slope <- function() stats::rnorm(1, 0, pr$slope_sd)
+  repeat {
+    gap <- stats::rnorm(1, pr$gap_mean, pr$gap_sd)
+    if (gap > 0) break
+  }
+  b <- list(psi1 = int(), b_psi1 = slope(), col = int(), b_col = slope(),
+            ext = int(), b_ext = slope(), alpha = int(), delta0 = int())
+  s <- simulate_fp_dyn(nsite = 100, nseason = 5, nocc = 4,
+                       psi1 = stats::plogis(b$psi1), b_psi1 = b$b_psi1,
+                       col = stats::plogis(b$col), b_col = b$b_col,
+                       ext = stats::plogis(b$ext), b_ext = b$b_ext,
+                       p11 = stats::plogis(b$alpha),
+                       p10 = stats::plogis(b$alpha - gap),
+                       r11 = stats::plogis(b$delta0), frac_verified = 0.2, nver = 2,
+                       seed = seed)
+  truth <- c(s$truth$pars, fp_gap = gap)
+  res <- tryCatch({
+    m <- fit_dyn(s$data, seed, psi1 = ~ x, col = ~ rain, ext = ~ x, fp = ~ 1)
+    dr <- posterior::as_draws_matrix(as_draws_df(m))
+    thin <- dr[round(seq(1, posterior::ndraws(dr), length.out = 99)), names(truth)]
+    list(ranks = colSums(sweep(unclass(thin), 2, truth, "<")), diag = m$diagnostics)
+  }, error = function(e) e)
+  ok <- !inherits(res, "error")
+  data.frame(variable = names(truth), truth = unname(truth),
+             rank = if (ok) unname(res$ranks[names(truth)]) else NA_real_, ok = ok,
+             msg = if (ok) NA_character_ else conditionMessage(res),
+             max_rhat = if (ok) res$diag$max_rhat else NA_real_,
+             divergences = if (ok) res$diag$divergences else NA_integer_)
+}
+
+run_one <- function(part, rep, cell, seed) {
+  f <- file.path(job_dir, sprintf("%s-cell%03d-rep%04d.rds", part, cell, rep))
+  if (file.exists(f)) return(invisible(NULL))
+  out <- switch(part, lowp = run_lowp(cell, seed), calib = run_calib(cell, seed),
+                randet = run_randet(cell, seed), markov = run_markov(cell, seed),
+                sbc = run_sbc(seed))
+  saveRDS(cbind(part = part, rep = rep, cell = cell, seed = seed, out), f)
+  invisible(NULL)
+}
+
+crywolf::fp_compile()                          # once, before the workers
+invisible(crywolf:::.compile_model("fp_occu_dyn"))
+future::plan(future::multisession, workers = workers)
+t0 <- Sys.time()
+furrr::future_pwalk(tasks, run_one,
+                    .options = furrr::furrr_options(seed = TRUE, chunk_size = 1))
+message("done: ", nrow(tasks), " tasks in ",
+        round(as.numeric(difftime(Sys.time(), t0, units = "hours")), 2), " h")
