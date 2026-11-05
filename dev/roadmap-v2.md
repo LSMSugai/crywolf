@@ -443,6 +443,10 @@ não-detecções).
 
 ### Fase A (2.x, depois do dinâmico): comunidade com falsos positivos por espécie
 
+**Ordem decidida em 05/11/2026:** um efeito por unidade em logit(p10) só entra no
+pacote depois de `u`, falso positivo por sítio × espécie e sazonalidade (PRs 3 a
+5), com recuperação por simulação e a escolha entre `sigma_t` comum ou por espécie.
+
 `fp_occu_ms()`: cada espécie tem ocupação, detecção verdadeira e taxa de
 falso positivo próprias, com os coeficientes sorteados de distribuições da
 comunidade (hierárquico, parametrização não centrada). O falso positivo de
