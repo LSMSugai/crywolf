@@ -26,4 +26,5 @@ AI interaction log.md
 dev/dyn-sim/jobs/
 dev/dyn-kfold/jobs/
 dev/dyn-val/jobs/
+dev/dyn-val/jobs-long/
 dev/dyn-kfold/stuck/

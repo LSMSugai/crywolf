@@ -13,6 +13,17 @@ Held-out elpd over 69 site x fold units with held-out minutes; SE from the sprea
 | ind_mk | -6095.5 | 818.2 |  274.4 | 103.5 |
 | ind_rd | -6250.1 | 841.3 |  119.8 |  97.3 |
 
+## Pairs of models
+
+| comparison | diff | se |
+| --- | --- | --- |
+| dyn - ind | 191.5 |  29.0 |
+| dyn_mk - ind_mk | 206.9 |  33.4 |
+| dyn_mk - dyn | 481.3 | 120.1 |
+| dyn_mk - ind_rd | 361.5 |  91.5 |
+| ind_mk - ind | 465.9 | 114.9 |
+| ind_rd - ind | 311.3 | 100.1 |
+
 ## By site
 
 | site | n | elpd.dyn | elpd.ind | elpd.dyn_mk | elpd.ind_mk | elpd.ind_rd |
