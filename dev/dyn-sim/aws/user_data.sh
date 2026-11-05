@@ -68,6 +68,13 @@ STATUS=$?
 echo "exit status ${STATUS} at $(date)" >> ${LOG}
 cat ${WORK}/build.log >> ${LOG}
 checkpoint
+# a spot interruption is not a failure of the script: leave no marker, so that
+# supervise.sh relaunches the run
+T=$(curl -s -X PUT http://169.254.169.254/latest/api/token \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "X-aws-ec2-metadata-token: ${T}" \
+  http://169.254.169.254/latest/meta-data/spot/instance-action)
+if [ "${STATUS}" != "0" ] && [ "${CODE}" = "200" ]; then shutdown -h now; exit 0; fi
 if [ "${STATUS}" = "0" ]; then MARK=DONE; else MARK=FAILED; fi
 echo "${ID} exit ${STATUS} $(date)" > /tmp/${MARK}
 aws s3 cp /tmp/${MARK} ${S3}/${MARK} --only-show-errors

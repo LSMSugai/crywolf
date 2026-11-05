@@ -16,6 +16,12 @@
 # Models, both with random_recorder, det ~ bio + aci and fp ~ temp + rh:
 #   dyn  fp_occu_dyn(psi1 = ~ 1, col = ~ temp_d + rh_d, ext = ~ temp_d + rh_d)
 #   ind  fp_occu(occ = ~ temp_d + rh_d), sites = site-nights
+#   dyn_mk, ind_mk  the same with markov = "time" (added on 04/11/2026)
+#   ind_rd  ind with random_det, a detection effect per site-night, which
+#           competes with the dynamics for the variation between nights; the
+#           held-out log-likelihood integrates the effects of the left-out
+#           site-nights by quadrature, on 400 thinned draws because it is
+#           slow (added on 04/11/2026)
 #
 # Folds: the dates are cut into blocks of 7 nights (weeks), and the weeks are
 # dealt at random into K = 10 folds, the same for every site. The first and
@@ -69,7 +75,7 @@ make_data <- function(model, k = NULL) {
   keep_occ <- keep(occasions$night)
   keep_ver <- keep(verified$night)
   suppressWarnings(
-    if (model == "dyn") {
+    if (startsWith(model, "dyn")) {
       fp_data(occasions[keep_occ, ], data.frame(site = sort(unique(occasions$site))),
               verified[keep_ver, ], site = "site", recorder = "recorder",
               season = "night", season_covs = daily)
@@ -85,8 +91,10 @@ fit_model <- function(model, d, seed) {
   args <- list(d, det = forms$det, fp = forms$fp, random_recorder = TRUE, seed = seed,
                chains = 4, parallel_chains = 4, threads_per_chain = threads,
                iter_warmup = 1000, iter_sampling = 1000, adapt_delta = 0.95,
-               refresh = 0, show_messages = FALSE)
-  if (model == "dyn") {
+               refresh = 0, show_messages = FALSE,
+               markov = if (endsWith(model, "_mk")) "time")
+  if (model == "ind_rd") args$random_det <- TRUE
+  if (startsWith(model, "dyn")) {
     do.call(fp_occu_dyn, c(args, list(psi1 = forms$psi1, col = forms$col, ext = forms$ext)))
   } else {
     do.call(fp_occu, c(args, list(occ = forms$occ)))
@@ -108,10 +116,11 @@ by_draws <- function(pars, f, n = 200) {
 # held-out log density, S draws x 7 sites (in the order of the dyn sites)
 heldout_ll <- function(model, fit, d_full, k) {
   sites <- sort(unique(occasions$site))
-  if (model == "dyn") {
+  if (startsWith(model, "dyn")) {
     sd_tr <- fit$stan_data
     sd_full <- crywolf:::.build_dyn_stan_data(d_full, forms$psi1, forms$col, forms$ext,
-                                              forms$det, forms$fp, TRUE, fit$priors)$stan_data
+                                              forms$det, forms$fp, TRUE, fit$priors,
+                                              markov = fit$markov)$stan_data
     stopifnot(identical(fit$data$seasons, d_full$seasons),
               identical(fit$data$sites$site, sites),
               identical(sd_tr$X, sd_full$X), identical(sd_tr$Xcol, sd_full$Xcol),
@@ -122,10 +131,13 @@ heldout_ll <- function(model, fit, d_full, k) {
     })
   } else {
     sd_full <- crywolf:::.build_stan_data(d_full, forms$occ, forms$det, forms$fp, TRUE,
-                                          fit$priors)$stan_data
+                                          fit$priors, markov = fit$markov,
+                                          random_det = model == "ind_rd")$stan_data
     stopifnot(identical(fit$stan_data$nrec, sd_full$nrec))
-    pars <- crywolf:::.ppc_pars(fit$fit, sd_full, NULL)
+    set.seed(k)                                # the thinned draws of ind_rd
+    pars <- crywolf:::.ppc_pars(fit$fit, sd_full, if (model == "ind_rd") 400)
     ll <- by_draws(pars, function(p) {
+      if (model == "ind_rd") return(crywolf:::.integrate_site_effect(sd_full, p))
       crywolf:::.ppc_core(sd_full, p, "automated", "freeman-tukey", ll_only = TRUE)$ll
     })
     sn <- d_full$sites
@@ -155,7 +167,8 @@ run_task <- function(model, k, seed) {
   invisible(file)
 }
 
-tasks <- expand.grid(fold = seq_len(K), model = c("dyn", "ind"), stringsAsFactors = FALSE)
+tasks <- expand.grid(fold = seq_len(K), model = c("dyn", "ind", "dyn_mk", "ind_mk", "ind_rd"),
+                     stringsAsFactors = FALSE)
 tasks$seed <- 91000 + seq_len(nrow(tasks)) + as.integer(Sys.getenv("SEED_OFFSET", "0"))
 tasks$id <- paste(tasks$model, tasks$fold, sep = "-")
 if (nzchar(only)) tasks <- tasks[tasks$id %in% strsplit(only, ",")[[1]], ]
