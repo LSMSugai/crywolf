@@ -16,17 +16,17 @@ Rscript dev/dyn-pika/run.R
 
 ## Run of 05/11/2026
 
-All five fits have 0 divergences, R-hat of at most 1.00 (rounded) and bulk ESS of
-at least 871.
+All five fits have 0 divergences, R-hat of at most 1.004 and bulk ESS of at least
+1,109.
 
 | Requirement | Result |
 |---|---|
-| PPC, automated | p = 0.81 (`dyn`); p = 0.22 (`ind`) |
-| PPC, verified | p = 0.17 (`dyn`) |
-| Priors of `fp_gap` | means of 1, 2 and 3 and an SD of 3 change no reported estimate by more than 0.02 on its own scale |
-| Independent seasons | `dyn` is ahead of `ind` by 179.3 elpd (SE 42.6), with no Pareto k above 0.7 |
+| PPC, automated | p = 0.78 (`dyn`); p = 0.21 (`ind`) |
+| PPC, verified | p = 0.16 (`dyn`) |
+| Priors of `fp_gap` | means of 1, 2 and 3 and an SD of 3 change no reported estimate by more than 0.023 on its own scale |
+| Independent seasons | `dyn` is ahead of `ind` by 178.7 elpd (SE 42.6), with no Pareto k above 0.7 |
 
-Colonization is 0.048 and extinction 0.070 per year, and `fp_gap` is 3.13.
+Colonization is 0.048 and extinction 0.071 per year, and `fp_gap` is 3.14.
 The article reports about 0.06 for both with a different model, with a false
 detection rate for each sign. The comparison with it is only of order of
 magnitude.

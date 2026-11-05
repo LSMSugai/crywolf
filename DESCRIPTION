@@ -45,6 +45,7 @@ Suggests:
     cmdstanr (>= 0.8.0),
     furrr,
     future,
+    ggdist,
     ggplot2,
     jsonlite,
     knitr,

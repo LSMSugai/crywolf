@@ -24,6 +24,21 @@ ci <- function(var, digits = 2) {
           r$mean, r$lower, r$upper)
 }
 cv <- res$cv$total
+pika <- res$pika
+pal <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00")
+fig_theme <- ggplot2::theme_minimal() +
+  ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
+pika_ci <- function(var, digits = 2) {
+  r <- pika$summary[pika$summary$variable == var, ]
+  sprintf(paste0("%.", digits, "f (%.", digits, "f to %.", digits, "f)"), r$mean, r$lower, r$upper)
+}
+prob_ci <- function(var) {
+  r <- pika$summary[pika$summary$variable == var, ]
+  sprintf("%.3f (%.3f to %.3f)", plogis(r$mean), plogis(r$lower), plogis(r$upper))
+}
+long_draws <- function(d) {
+  data.frame(variable = rep(names(d), each = nrow(d)), value = unlist(d, use.names = FALSE))
+}
 pair <- function(name) {
   r <- res$cv$pairs[res$cv$pairs$comparison == name, ]
   sprintf("%.1f (SE %.1f)", r$diff, r$se)
@@ -66,6 +81,10 @@ $p_{11}$ on nights in use, false positives with probability $p_{10}$ on
 every night, and verified recordings that settle what was recorded. The
 states are summed out by the forward algorithm, so the model has no latent
 discrete parameters for Stan to sample.
+
+```{r dag, echo = FALSE, out.width = "100%", fig.cap = "Directed acyclic graph of the model fitted by `fp_occu_dyn()`. Hexagons are priors (defaults of `fp_priors()`), yellow ellipses are parameters, blue boxes are covariates, green ellipses are latent quantities and linear predictors, and octagons are the observed data. Dashed outlines mark optional components. The false-positive coefficients are called eta here because gamma is colonization. The options `markov`, `random_det` and `random_fp` are not drawn."}
+knitr::include_graphics("dynamic-dag.png")
+```
 
 With nights as seasons, "occupancy" means use of the site on a given
 night. Colonization is the start of use after a night without it, and
@@ -119,12 +138,24 @@ sample size `r round(res$diagnostics$min_ess_bulk)`, with
 
 ## Results
 
-```{r estimates}
-vars <- c("col_(Intercept)", "col_temp_d", "col_rh_d", "ext_(Intercept)",
-          "ext_temp_d", "ext_rh_d", "p11_ref", "p10_ref")
-est <- res$summary[res$summary$variable %in% vars, c("variable", "mean", "lower", "upper")]
-est[c("mean", "lower", "upper")] <- signif(est[c("mean", "lower", "upper")], 3)
-est
+```{r estimates, echo = FALSE, fig.height = 4.5, fig.cap = "Posterior distributions of the parameters of `curiango`, from 1,000 draws. Points are medians, and the thick and thin bars are the 66% and 95% intervals. Coefficients are on the logit scale, and the dashed line marks zero."}
+est <- long_draws(res$draws)
+est$panel <- factor(ifelse(startsWith(est$variable, "col_"), "Colonization (logit)",
+                    ifelse(startsWith(est$variable, "ext_"), "Extinction (logit)", est$variable)),
+                    c("Colonization (logit)", "Extinction (logit)", "p11_ref", "p10_ref"))
+est$term <- factor(ifelse(grepl("Intercept", est$variable), "Intercept",
+                   ifelse(grepl("temp", est$variable), "Temperature",
+                   ifelse(grepl("rh", est$variable), "Humidity", " "))),
+                   c(" ", "Humidity", "Temperature", "Intercept"))
+zero <- data.frame(panel = factor(c("Colonization (logit)", "Extinction (logit)"), levels(est$panel)),
+                   x = 0)
+ggplot2::ggplot(est, ggplot2::aes(value, term)) +
+  ggplot2::geom_vline(ggplot2::aes(xintercept = x), zero, linetype = "dashed", colour = "grey60") +
+  ggdist::stat_halfeye(fill = pal[1], alpha = 0.8, .width = c(0.66, 0.95), point_size = 1.5,
+                       normalize = "groups") +
+  ggplot2::facet_wrap(~ panel, scales = "free") +
+  ggplot2::labs(x = NULL, y = NULL) +
+  fig_theme
 ```
 
 On a night of average temperature and humidity, a site not in use starts
@@ -212,9 +243,16 @@ independent site-nights. `dyn_mk` and `ind_mk` add `markov = "time"`.
 `ind_rd` adds `random_det` to `ind`, a detection effect for each site-night,
 which competes with the dynamics for the variation between nights.
 
-```{r cv}
-transform(cv, elpd = round(elpd, 1), se = round(se, 1),
-          diff_from_dyn = round(diff_from_dyn, 1), se_diff = round(se_diff, 1))
+```{r cv, echo = FALSE, fig.height = 2.6, fig.cap = "Difference in elpd from `dyn` in the blocked cross-validation. Bars are two standard errors of the difference, and `dyn` itself has none."}
+cvd <- cv[order(cv$diff_from_dyn), ]
+cvd$model <- factor(cvd$model, cvd$model)
+ggplot2::ggplot(cvd, ggplot2::aes(diff_from_dyn, model)) +
+  ggplot2::geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  ggplot2::geom_pointrange(ggplot2::aes(xmin = diff_from_dyn - 2 * se_diff,
+                                        xmax = diff_from_dyn + 2 * se_diff),
+                           colour = pal[1], size = 0.4) +
+  ggplot2::labs(x = "elpd difference from dyn", y = NULL) +
+  fig_theme
 ```
 
 The dynamic model predicts the left-out nights better than the independent
@@ -224,11 +262,24 @@ The Markov term itself gains more than the dynamics:
 `r pair("ind_mk - ind")` over `ind`. The two gains add up, and `dyn_mk` has the
 highest elpd in all ten folds and at all seven sites:
 
-```{r cv-site}
-by_site <- res$cv$by_site
-by_site[-1] <- round(by_site[-1], 1)
-names(by_site) <- c("site", "minutes left out", "dyn", "ind", "dyn_mk", "ind_mk", "ind_rd")
-by_site
+```{r cv-site, echo = FALSE, fig.height = 4, fig.cap = "Gain in elpd over `ind` at each site and in each fold. Positive values favour the model over independent site-nights."}
+gain <- function(x, id, label) {
+  m <- c("dyn", "dyn_mk", "ind_mk", "ind_rd")
+  do.call(rbind, lapply(m, function(k) {
+    data.frame(unit = as.character(x[[id]]), model = k, panel = label,
+               gain = x[[paste0("elpd.", k)]] - x$elpd.ind)
+  }))
+}
+g <- rbind(gain(res$cv$by_site, "site", "By site"), gain(res$cv$by_fold, "fold", "By fold"))
+g$unit <- factor(g$unit, c(sort(unique(res$cv$by_site$site)), 10:1))
+g$panel <- factor(g$panel, c("By site", "By fold"))
+ggplot2::ggplot(g, ggplot2::aes(gain, unit, colour = model, shape = model)) +
+  ggplot2::geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  ggplot2::geom_point(size = 2) +
+  ggplot2::scale_colour_manual(values = pal[1:4]) +
+  ggplot2::facet_wrap(~ panel, scales = "free_y") +
+  ggplot2::labs(x = "elpd gain over ind", y = NULL, colour = NULL, shape = NULL) +
+  fig_theme + ggplot2::theme(legend.position = "bottom")
 ```
 
 `random_det` also improves on `ind`, by `r pair("ind_rd - ind")`, but less than
@@ -258,6 +309,27 @@ absolute bias was at most 0.024. Observation-confirmation, with 10% or 30% of
 occasions confirmed, met the same thresholds. Simulation-based calibration
 found no departure from uniform ranks in 1,000 replicates.
 
+```{r val-bias, echo = FALSE, fig.height = 6, fig.cap = "Bias of the posterior mean in the designs with low detection, by the fraction of site-seasons verified. Dashed lines mark the threshold of 0.05."}
+lowp <- res$val$lowp
+lowp$p11 <- factor(lowp$p11)
+lowp$seasons <- factor(paste(lowp$nseason, "seasons"), paste(c(3, 6, 10), "seasons"))
+val_plot <- function(y, line, label) {
+  ggplot2::ggplot(lowp, ggplot2::aes(frac_verified, .data[[y]], colour = p11, shape = p11)) +
+    ggplot2::geom_hline(yintercept = line, linetype = "dashed", colour = "grey60") +
+    ggplot2::geom_line() +
+    ggplot2::geom_point(size = 2) +
+    ggplot2::scale_colour_manual(values = pal[1:2]) +
+    ggplot2::facet_grid(param ~ seasons) +
+    ggplot2::labs(x = "Fraction of site-seasons verified", y = label) +
+    fig_theme + ggplot2::theme(legend.position = "bottom")
+}
+val_plot("bias", c(-0.05, 0.05), "Bias")
+```
+
+```{r val-coverage, echo = FALSE, fig.height = 6, fig.cap = "Coverage of the 95% intervals in the same designs. The dashed line marks the threshold of 0.90."}
+val_plot("coverage", 0.90, "Coverage")
+```
+
 The limits lie at low detection with little verification:
 
 * With p11 = 0.15 and no verification, colonization was biased upwards by 0.12
@@ -265,6 +337,17 @@ The limits lie at low detection with little verification:
 * With p11 = 0.15 and 10% verified, both biases stayed above 0.05 with 3 or 6
   seasons, and fell below it with 10 seasons.
 * With p11 = 0.15 and 20% or more verified, the thresholds were met.
+
+```{r val-converged, echo = FALSE, fig.height = 2.8, fig.cap = "Fraction of the fits of each design cell with R-hat below 1.01. Each point is a cell, and the dashed line marks the threshold of 0.95."}
+cells <- res$val$lowp_fits
+cells$p11 <- factor(cells$p11)
+ggplot2::ggplot(cells, ggplot2::aes(factor(frac_verified), converged, colour = p11, shape = p11)) +
+  ggplot2::geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey60") +
+  ggplot2::geom_point(position = ggplot2::position_jitter(width = 0.2, height = 0, seed = 1), alpha = 0.7) +
+  ggplot2::scale_colour_manual(values = pal[1:2]) +
+  ggplot2::labs(x = "Fraction of site-seasons verified", y = "Fits converged") +
+  fig_theme
+```
 
 Ignoring a source of variation was costly. When false positives varied with a
 covariate, `fp ~ 1` kept `psi_fs` nearly unbiased (at most 0.018), but the
@@ -274,6 +357,31 @@ detection had an SD of 1, leaving out `random_det` gave a bias of -0.10 in
 logit scale, leaving out `markov` gave a coverage of 0.44 for `psi_fs`.
 With the option on, both models recovered these quantities, with a coverage of
 at least 0.90 for `sd_det_site` and `det_y_prev`.
+
+```{r val-omit, echo = FALSE, fig.height = 5, fig.cap = "Coverage of the 95% intervals when the data have a source of variation and the model leaves it out or includes it. The dashed line marks the threshold of 0.90. False positives on a covariate are shown for the design with 20% of site-seasons verified."}
+one <- function(x, scenario, on) {
+  data.frame(scenario = scenario, param = x$param, coverage = x$coverage,
+             model = ifelse(x$model == on, "Included", "Left out"))
+}
+ca <- res$val$calib
+ca <- ca[ca$b_fp == 1 & ca$frac_verified == 0.2, ]
+ra <- res$val$randet
+ma <- res$val$markov
+om <- rbind(one(ca, "fp on a covariate", "fp_x"),
+            one(ra[ra$sd_det == 0.5, ], "Site effects, SD 0.5", "random_det"),
+            one(ra[ra$sd_det == 1, ], "Site effects, SD 1", "random_det"),
+            one(ma[ma$a == 1, ], "Runs, strength 1", "markov"),
+            one(ma[ma$a == 2, ], "Runs, strength 2", "markov"))
+om <- om[om$param %in% c("col", "ext", "p10_bar", "psi_fs", "psi1"), ]
+om$scenario <- factor(om$scenario, unique(om$scenario))
+ggplot2::ggplot(om, ggplot2::aes(coverage, param, colour = model, shape = model)) +
+  ggplot2::geom_vline(xintercept = 0.90, linetype = "dashed", colour = "grey60") +
+  ggplot2::geom_point(size = 2) +
+  ggplot2::scale_colour_manual(values = pal[1:2]) +
+  ggplot2::facet_wrap(~ scenario, ncol = 2) +
+  ggplot2::labs(x = "Coverage", y = NULL, colour = NULL, shape = NULL) +
+  fig_theme + ggplot2::theme(legend.position = "bottom")
+```
 
 With strong site effects, `random_det` needed longer chains. With an SD of 1 and
 1,000 + 1,000 iterations, 93% of fits reached R-hat below 1.01. With 2,000 +
@@ -289,12 +397,96 @@ the sign as a covariate of `det` and `fp`. Sightings and unambiguous fresh scat
 form the verified method. Unlike the article, this model does not give each sign
 its own detection process.
 
-The fit converged, with no divergent transitions. Colonization was 0.05 and
-extinction 0.07 per year. The posterior predictive checks gave p = 0.81 for the
-automated method and p = 0.17 for the verified one, so the misfit seen on
-`curiango` did not appear here. Prior means of 1 to 3 for `fp_gap`, and a doubled
-prior SD, left the estimates nearly unchanged. Leaving out whole plots, PSIS-LOO
-favoured the dynamic model over independent plot-years by 179.3 (SE 42.6) in elpd.
+The dynamic model has `psi1 ~ park`, with constant colonization and extinction.
+The independent model treats each plot-year as a site, with `occ ~ park + year`.
+All five fits had no divergent transitions, R-hat of at most
+`r sprintf("%.3f", max(sapply(pika$diagnostics, "[[", "max_rhat")))`, and a bulk
+effective sample size of at least
+`r round(min(sapply(pika$diagnostics, "[[", "min_ess_bulk")))`.
+
+```{r pika-rates, echo = FALSE, fig.height = 3.6, fig.cap = "Posterior distributions of the rates of the pika model, from 1,000 draws. `psi_eq` is the occupancy implied by colonization and extinction at equilibrium."}
+pr <- pika$draws
+pr[c("col_(Intercept)", "ext_(Intercept)")] <- lapply(pr[c("col_(Intercept)", "ext_(Intercept)")], plogis)
+names(pr)[1:2] <- c("Colonization", "Extinction")
+pr <- long_draws(pr)
+pr$variable <- factor(pr$variable, unique(pr$variable))
+ggplot2::ggplot(pr, ggplot2::aes(value)) +
+  ggdist::stat_halfeye(fill = pal[1], alpha = 0.8, .width = c(0.66, 0.95), point_size = 1.5,
+                       normalize = "panels") +
+  ggplot2::facet_wrap(~ variable, scales = "free_x", ncol = 3) +
+  ggplot2::scale_y_continuous(breaks = NULL) +
+  ggplot2::labs(x = "Probability", y = NULL) +
+  fig_theme
+```
+
+Colonization was `r prob_ci("col_(Intercept)")` and extinction
+`r prob_ci("ext_(Intercept)")` per year. Occupancy at equilibrium was
+`r pika_ci("psi_eq")`. A call, the reference sign, was recorded on a survey of an
+occupied plot with probability `r pika_ci("p11_ref")`, and on a survey of an
+unoccupied plot with probability `r pika_ci("p10_ref", 3)`. Goldman et al.
+(2023) report about 0.06 for both colonization and extinction with a different
+model, so the comparison is only of order of magnitude.
+
+```{r pika-occ, echo = FALSE, fig.height = 3.4, fig.cap = "Mean probability that the plots of each park unit were occupied in each year, given all the data. The shaded years have no surveys, so their states come from the years around them."}
+occ <- pika$occ_park
+occ$year <- as.numeric(as.character(occ$year))
+ggplot2::ggplot(occ, ggplot2::aes(year, occupied, colour = park, shape = park)) +
+  ggplot2::annotate("rect", xmin = 2014.5, xmax = 2016.5, ymin = -Inf, ymax = Inf, fill = "grey92") +
+  ggplot2::geom_line() +
+  ggplot2::geom_point(size = 2) +
+  ggplot2::scale_colour_manual(values = pal) +
+  ggplot2::scale_x_continuous(breaks = seq(2010, 2021, 2)) +
+  ggplot2::labs(x = NULL, y = "Pr(occupied)", colour = NULL, shape = NULL) +
+  fig_theme
+```
+
+Occupancy moved towards the equilibrium in most park units. Colonization and
+extinction are constant and shared in this model, so that movement is built in. It
+is not evidence of a trend in any park unit.
+
+The posterior predictive checks gave p = `r sprintf("%.2f", pika$ppc$dyn_auto$p_value)`
+for the automated method and p = `r sprintf("%.2f", pika$ppc$dyn_ver$p_value)` for the
+verified one, so the misfit seen on `curiango` did not appear here. The independent
+model gave p = `r sprintf("%.2f", pika$ppc$ind_auto$p_value)` for the automated method.
+
+```{r pika-ppc, echo = FALSE, fig.height = 2.8, fig.cap = "Posterior predictive checks of the pika models. Each point is a draw, and points on the line have equal observed and replicated discrepancies."}
+pp <- do.call(rbind, Map(function(x, label) {
+  data.frame(check = sprintf("%s (p = %.2f)", label, x$p_value), obs = x$fit_obs, rep = x$fit_rep)
+}, pika$ppc, c("dyn, automated", "dyn, verified", "ind, automated")))
+pp$check <- factor(pp$check, unique(pp$check))
+ggplot2::ggplot(pp, ggplot2::aes(obs, rep)) +
+  ggplot2::geom_abline(linetype = "dashed", colour = "grey60") +
+  ggplot2::geom_point(colour = pal[1], alpha = 0.4, size = 0.8) +
+  ggplot2::facet_wrap(~ check, scales = "free") +
+  ggplot2::labs(x = "Observed discrepancy", y = "Replicated discrepancy") +
+  fig_theme
+```
+
+Prior means of 1 to 3 for `fp_gap`, and a doubled prior SD, left the estimates
+nearly unchanged.
+
+```{r pika-priors, echo = FALSE, fig.height = 3.6, fig.cap = "Posterior means and 95% intervals of the pika model under four priors of `fp_gap`, on the scale of each parameter."}
+se <- pika$sensitivity
+se <- se[se$variable %in% c("col_(Intercept)", "ext_(Intercept)", "fp_gap", "p11_ref", "p10_ref", "psi_eq"), ]
+se$prior <- factor(se$prior, c("gap_wide", "gap_high", "gap_low", "default"),
+                   c("mean 2, SD 3", "mean 3", "mean 1", "default"))
+ggplot2::ggplot(se, ggplot2::aes(mean, prior)) +
+  ggplot2::geom_pointrange(ggplot2::aes(xmin = lower, xmax = upper), colour = pal[1], size = 0.3) +
+  ggplot2::facet_wrap(~ variable, scales = "free_x", ncol = 3) +
+  ggplot2::labs(x = NULL, y = NULL) +
+  fig_theme
+```
+
+Leaving out whole plots, PSIS-LOO favoured the dynamic model over independent
+plot-years by `r sprintf("%.1f (SE %.1f)", -pika$loo$elpd_diff[2], pika$loo$se_diff[2])` in
+elpd, with no Pareto k above 0.7. With 771 plots, leaving one out removes little of
+the data, which is why LOO works here and not on the seven sites of `curiango`.
+
+Two simplifications matter. The verified occasion shares its survey with the
+automated ones, and unambiguous scat is a subset of fresh scat, so the two methods
+are not fully independent given the state. The sign also enters `det` and `fp` as a
+covariate, whereas the article gives each sign its own model.
+
 The script and data are in `dev/dyn-pika/` in the source repository.
 
 ## When to use it

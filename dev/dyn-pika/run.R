@@ -84,14 +84,20 @@ l_ind <- psis(ll_sum)
 ppc <- list(dyn_auto = fp_ppc(fits$default, ndraws = 300, seed = 1),
             dyn_ver = fp_ppc(fits$default, method = "verified", ndraws = 300, seed = 1),
             ind_auto = fp_ppc(ind, ndraws = 300, seed = 1))
+# 1,000 draws of the rates, and the mean Pr(occupied) of the plots of each park and year
+rates <- c("col_(Intercept)", "ext_(Intercept)", "p11_ref", "p10_ref", "p_verified", "psi_eq")
+draws <- as.data.frame(as_draws_df(fits$default))[, rates]
+sites <- as.data.frame(fp_sites(fits$default, ndraws = 1000, seed = 1))
+occ_park <- aggregate(sites["occupied"], list(park = plots$Park[match(sites$site, plots$plot)],
+                                              year = sites$year), mean)
 res <- list(sizes = c(plots = nrow(plots), surveys = nrow(raw)),
             diagnostics = c(lapply(fits, `[[`, "diagnostics"), list(ind = ind$diagnostics)),
+            draws = draws[seq(1, nrow(draws), length.out = 1000), ], occ_park = occ_park,
             summary = as.data.frame(summary(fits$default)$table), ind_summary = as.data.frame(summary(ind)$table),
             sensitivity = sens, loo = loo::loo_compare(list(dyn = l_dyn, ind = l_ind)),
             high_k = c(dyn = sum(l_dyn$diagnostics$pareto_k > 0.7),
                        ind = sum(l_ind$diagnostics$pareto_k > 0.7)),
-            ppc = lapply(ppc, function(p) list(p_value = p$p_value, fit_obs = stats::median(p$fit_obs),
-                                               fit_rep = stats::median(p$fit_rep))))
+            ppc = lapply(ppc, function(p) p[c("p_value", "fit_obs", "fit_rep")]))
 saveRDS(res, file.path(dir, "results.rds"))
 str(res[c("sizes", "diagnostics", "high_k", "ppc")], max.level = 3)
 print(res$loo)
