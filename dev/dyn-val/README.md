@@ -47,6 +47,11 @@ and seeds, after these results were known. One of its 100 fits has R-hat of 1.01
 and none has divergences. The estimates did not change: the bias and coverage of
 every quantity stayed within 0.01 of the first run.
 
+Criterion 8 is met with the pika surveys of `dev/dyn-pika/`, a data set
+independent of curiango, with a PPC, sensitivity to the priors of `fp_gap` and a
+comparison with independent seasons. Criterion 10 is met by the help page and
+`vignette("dynamic")`. Criterion 9 remains.
+
 Slopes such as `fp_x` are not among the quantities of criterion 2. Its coverage
 was 0.89 to 0.97. Coverage from 100 replicates has a standard error near 0.02,
 so values at 0.90 do not separate from the threshold.
