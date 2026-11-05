@@ -308,8 +308,8 @@ The script and data are in `dev/dyn-pika/` in the source repository.
 * Verify recordings in at least 10% of site-seasons, and more when detection
   is low. Without verification, colonization and extinction are biased at low
   detection.
-* With minutes or other occasions close in time, check for runs of detections
-  and consider `markov`.
+* Runs of detections are common in passive acoustic monitoring, where occasions
+  are minutes close in time. Check for them and consider `markov`.
 * `fp_calibrate()` simulates only single-season designs, so it does not plan a
   dynamic study; `simulate_fp_dyn()` is the starting point for that.
 
