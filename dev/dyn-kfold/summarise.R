@@ -1,7 +1,7 @@
 # Reads the job files of dev/dyn-kfold/run_kfold.R and writes results.rds
-# and the tables of results.md: the held-out elpd of the dynamic model (dyn)
-# and of the model of independent site-nights (ind), by site and fold, and
-# their difference. Run from the package root: Rscript dev/dyn-kfold/summarise.R
+# and the tables of results.md: the held-out elpd of each model, by site and
+# fold, and its difference from the dynamic model (dyn). Run from the package
+# root: Rscript dev/dyn-kfold/summarise.R
 dir <- file.path("dev", "dyn-kfold")
 jobs <- lapply(list.files(file.path(dir, "jobs"), full.names = TRUE), readRDS)
 lme <- function(x) max(x) + log(mean(exp(x - max(x))))
@@ -14,13 +14,17 @@ rows <- do.call(rbind, lapply(jobs, function(j) {
 rows <- rows[rows$n > 0, ]
 w <- reshape(rows, idvar = c("fold", "site", "n"), timevar = "model", direction = "wide")
 w <- w[stats::complete.cases(w), ]
-w$diff <- w$elpd.dyn - w$elpd.ind
+models <- c("dyn", "ind", "dyn_mk", "ind_mk", "ind_rd")
+cols <- paste0("elpd.", models)
 se <- function(x) sqrt(length(x)) * stats::sd(x)
-total <- data.frame(model = c("dyn", "ind", "dyn - ind"),
-                    elpd = c(sum(w$elpd.dyn), sum(w$elpd.ind), sum(w$diff)),
-                    se = c(se(w$elpd.dyn), se(w$elpd.ind), se(w$diff)))
-by_site <- stats::aggregate(cbind(n, elpd.dyn, elpd.ind, diff) ~ site, w, sum)
-by_fold <- stats::aggregate(cbind(n, elpd.dyn, elpd.ind, diff) ~ fold, w, sum)
+total <- do.call(rbind, lapply(models, function(m) {
+  e <- w[[paste0("elpd.", m)]]
+  d <- e - w$elpd.dyn
+  data.frame(model = m, elpd = sum(e), se = se(e), diff_from_dyn = sum(d), se_diff = se(d))
+}))
+by_unit <- function(by) stats::aggregate(w[c("n", cols)], w[by], sum)
+by_site <- by_unit("site")
+by_fold <- by_unit("fold")
 diag <- do.call(rbind, lapply(jobs, function(j) {
   d <- j$diagnostics
   data.frame(model = j$model, fold = j$fold, max_rhat = d$max_rhat,
