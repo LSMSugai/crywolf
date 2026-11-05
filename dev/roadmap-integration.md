@@ -134,6 +134,22 @@ O que toca o crywolf, em ordem de prioridade:
     revisado quando difere do da ocasião).
   - Divisão: o sheepdog escreve dados e desenho; f1/f0 e o ajuste ficam
     só no crywolf.
+  - **Antes de começar o `fp_occu_score()`, ler no sheepdog
+    `dev/dag/NOTAS-fase2.md`** (sessão de 02–04/11/2026). Ele resume a
+    leitura completa de Rhinehart et al. (2022) e Ogawa et al. (2025):
+    de onde vem cada parte do modelo, as lições de identificação e as
+    decisões em aberto. No mesmo diretório estão a DAG de referência, no
+    estilo da DAG deste pacote (`fase2_dag.dot`/`.png`), e a tabela
+    comparativa (`comparacao_modelos.md`). O modelo, já na notação da
+    vinheta do crywolf (i, k, **x**, **d**, **g**, gap Δ_s), está no
+    roadmap do sheepdog, na seção "O modelo (proposta, a validar)".
+  - **Correção (04/11/2026):** o score máximo de `scores.csv` não pode
+    entrar como se seguisse f1/f0 da janela. O máximo de n janelas tem
+    distribuição própria, que depende de `n_windows`; ver a seção
+    "Distribuição do máximo" no roadmap do sheepdog.
+  - A hipótese de que a calibração mistura prevalência e classificador já
+    tem evidência empírica no Curiango (sheepdog#67), mas a simulação da
+    Fase 2 ainda deve conferir.
 - **Fase 3:** `fp_review_priority()` para a camada dirigida da validação.
 - **Fases 4 e 5:** atividade vocal e comunidade, alinhadas com a Fase A do
   multiespécies do [roadmap v2](roadmap-v2.md). A confusão entre espécies
