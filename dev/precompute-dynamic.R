@@ -28,7 +28,7 @@ out <- list(
                                  levels = as.character(d$seasons))),
   ppc = list(p_value = ppc$p_value, fit_obs = ppc$fit_obs, fit_rep = ppc$fit_rep),
   sites = as.data.frame(fp_sites(fit, ndraws = 1000, seed = 1)),
-  cv = cv[c("total", "by_site", "by_fold", "diagnostics")],
+  cv = cv[c("total", "pairs", "by_site", "by_fold", "diagnostics")],
   cv_units = nrow(cv$units)
 )
 saveRDS(crywolf:::.stamp(out), file.path("vignettes", "dynamic-results.rds"), compress = "xz")

@@ -54,7 +54,8 @@
 #'   whether the interval covered the truth, and sampler diagnostics. Use
 #'   [base::summary()] for coverage, its Monte Carlo standard error, bias, and RMSE
 #'   per cell and model.
-#' @seealso [fp_verification_curve()], [simulate_fp()]
+#' @seealso [fp_verification_curve()], [simulate_fp()]; for dynamic designs,
+#'   which this function does not simulate, [simulate_fp_dyn()]
 #' @export
 #' @examples
 #' \dontrun{

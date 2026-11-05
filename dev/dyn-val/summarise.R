@@ -10,8 +10,7 @@
 # Run from the package root:  Rscript dev/dyn-val/summarise.R
 # =============================================================================
 
-job_dir <- file.path("dev", "dyn-val", "jobs")
-read_part <- function(part) {
+read_part <- function(part, job_dir = file.path("dev", "dyn-val", "jobs")) {
   f <- list.files(job_dir, pattern = paste0("^", part, "-"), full.names = TRUE)
   do.call(rbind, lapply(f, readRDS))
 }
@@ -32,6 +31,8 @@ prepare <- function(x) {
   x
 }
 d <- lapply(d, prepare)
+# the cell of random_det with sd = 1, rerun with 2000 + 2000 iterations
+long <- prepare(read_part("randet", file.path("dev", "dyn-val", "jobs-long")))
 
 # share of converged fits per cell and model
 fits <- function(x, by) {
@@ -69,7 +70,9 @@ res <- list(
   calib = only(metrics(d$calib, c("frac_verified", "frac_confirmed", "b_fp", "model")),
                c(core, "fp_x")),
   randet = only(metrics(d$randet, c("sd_det", "model")), c(core, "sd_det_site")),
-  markov = only(metrics(d$markov, c("a", "model")), c(core, "det_y_prev"))
+  markov = only(metrics(d$markov, c("a", "model")), c(core, "det_y_prev")),
+  randet_long_fits = fits(long, "sd_det"),
+  randet_long = only(metrics(long, c("sd_det", "model")), c(core, "sd_det_site"))
 )
 
 # criterion 6: 100 possible ranks (0 to 99) in 10 bins of 10
@@ -123,6 +126,8 @@ out <- c("# Validation of the dynamic model: results", "",
                 "; with R-hat at or above 1.01: ", res$sbc_fits[["rhat_over_1.01"]], "."), "",
          md(res$sbc), "",
          "## Criterion 7: random_det and markov", "", md(res$randet_fits), "", md(res$randet), "",
-         md(res$markov_fits), "", md(res$markov), "")
+         md(res$markov_fits), "", md(res$markov), "",
+         "## random_det with sd = 1 and 2000 + 2000 iterations", "",
+         md(res$randet_long_fits), "", md(res$randet_long), "")
 writeLines(out, file.path("dev", "dyn-val", "results.md"))
 message("wrote dev/dyn-val/results.rds and results.md")

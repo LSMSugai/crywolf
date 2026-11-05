@@ -9,7 +9,7 @@ vignette: >
 
 ```{r setup, include = FALSE}
 # The fit takes about 35 minutes on 8 cores (97,806 occasions) and the
-# cross-validation 20 fits on AWS, so the results were saved by
+# cross-validation 50 fits on AWS, so the results were saved by
 # dev/precompute-dynamic.R and dev/dyn-kfold/ and are read from
 # dynamic-results.rds.
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
@@ -24,6 +24,10 @@ ci <- function(var, digits = 2) {
           r$mean, r$lower, r$upper)
 }
 cv <- res$cv$total
+pair <- function(name) {
+  r <- res$cv$pairs[res$cv$pairs$comparison == name, ]
+  sprintf("%.1f (SE %.1f)", r$diff, r$se)
+}
 ```
 
 ```{r stale, echo = FALSE, results = "asis"}
@@ -40,8 +44,8 @@ that has been silent for a month. `fp_occu_dyn()` drops that assumption. It
 fits the dynamic occupancy model (MacKenzie et al., 2003) with the false
 positives of the multiple-methods design (Miller et al., 2013), with the
 nights of each site as seasons. This article fits it to the `curiango`
-data and compares it with the model of independent site-nights by blocked
-cross-validation.
+data, compares it with the model of independent site-nights by blocked
+cross-validation, and reports how it behaved in simulations.
 
 ## The model
 
@@ -181,7 +185,8 @@ independent site-nights fails this check by a similar margin
 (`vignette("markov")`). The misfit therefore lies within nights, where the
 minutes are taken as independent, and not in the dynamics across nights.
 `fp_occu_dyn(markov = )` adds the Markov term of `vignette("markov")` for
-runs of detections within a night; it is not fitted here.
+runs of detections within a night. The next section compares it by
+cross-validation.
 
 ## Comparison with independent site-nights
 
@@ -201,29 +206,77 @@ false-positive and recorder terms, with `occ ~ temp_d + rh_d`. The score of
 each site and fold is the log of the posterior predictive density of its
 left-out minutes and verified recordings (elpd).
 
+The comparison has five models. `dyn` is the fit above and `ind` the model of
+independent site-nights. `dyn_mk` and `ind_mk` add `markov = "time"`.
+`ind_rd` adds `random_det` to `ind`, a detection effect for each site-night,
+which competes with the dynamics for the variation between nights.
+
 ```{r cv}
-transform(cv, elpd = round(elpd, 1), se = round(se, 1))
+transform(cv, elpd = round(elpd, 1), se = round(se, 1),
+          diff_from_dyn = round(diff_from_dyn, 1), se_diff = round(se_diff, 1))
 ```
 
-The dynamic model predicts the left-out nights better, by
-`r sprintf("%.1f", cv$elpd[3])` (SE `r sprintf("%.1f", cv$se[3])`) in elpd
-over `r res$cv_units` site and fold units. It does better in all ten folds
-and at all seven sites:
+The dynamic model predicts the left-out nights better than the independent
+one, by `r pair("dyn - ind")` in elpd over `r res$cv_units` site and fold units.
+The same holds with the Markov term, by `r pair("dyn_mk - ind_mk")`.
+The Markov term itself gains more than the dynamics:
+`r pair("ind_mk - ind")` over `ind`. The two gains add up, and `dyn_mk` has the
+highest elpd in all ten folds and at all seven sites:
 
 ```{r cv-site}
 by_site <- res$cv$by_site
 by_site[-1] <- round(by_site[-1], 1)
-names(by_site) <- c("site", "minutes left out", "dynamic", "independent", "difference")
+names(by_site) <- c("site", "minutes left out", "dyn", "ind", "dyn_mk", "ind_mk", "ind_rd")
 by_site
 ```
 
-Two caveats apply. The SE treats the site and fold units as independent,
+`random_det` also improves on `ind`, by `r pair("ind_rd - ind")`, but less than
+the Markov term does. Runs of detections, then, explain more of these data than
+differences between nights alone.
+
+Three caveats apply. The SE treats the site and fold units as independent,
 although the units of a fold share a training fit, so it is likely too
-small. And each left-out week has nights in the training data on both
-sides, so the dynamic model interpolates as well as forecasts. All 20
-training fits converged; one fit of the independent model was rerun with
-another seed after a chain stuck in a second mode (see
-`dev/dyn-kfold/README.md` in the source repository).
+small. Each left-out week has nights in the training data on both
+sides, so the dynamic model interpolates as well as forecasts. And the elpd of
+`ind_rd` comes from 400 posterior draws, because integrating its effects is
+slow, against 4,000 for the other models. All 50 training fits converged; one
+fit of the independent model was rerun with another seed after a chain stuck
+in a second mode (see `dev/dyn-kfold/README.md` in the source repository).
+
+## Validation in simulation
+
+We simulated data with `simulate_fp_dyn()` and fitted the model to them, in
+6,320 tasks, with none ending in error. The criteria were set before the
+results, and the tables are in `dev/dyn-val/` in the source repository.
+All the designs had 100 sites.
+
+With p11 of at least 0.30 and at least 10% of site-seasons verified, the model
+was well calibrated. Coverage of the 95% intervals of initial occupancy,
+colonization, extinction, `p10_bar` and `psi_fs` was at least 0.90, and the
+absolute bias was at most 0.024. Observation-confirmation, with 10% or 30% of
+occasions confirmed, met the same thresholds. Simulation-based calibration
+found no departure from uniform ranks in 1,000 replicates.
+
+The limits lie at low detection with little verification:
+
+* With p11 = 0.15 and no verification, colonization was biased upwards by 0.12
+  to 0.17 and extinction by 0.09 to 0.13, and up to 40% of fits did not converge.
+* With p11 = 0.15 and 10% verified, both biases stayed above 0.05 with 3 or 6
+  seasons, and fell below it with 10 seasons.
+* With p11 = 0.15 and 20% or more verified, the thresholds were met.
+
+Ignoring a source of variation was costly. When false positives varied with a
+covariate, `fp ~ 1` kept `psi_fs` nearly unbiased (at most 0.018), but the
+coverage of `p10_bar` fell to between 0.72 and 0.89. When site effects on
+detection had an SD of 1, leaving out `random_det` gave a bias of -0.10 in
+`psi_fs` and a coverage of 0.01. With runs of detections of strength 2 on the
+logit scale, leaving out `markov` gave a coverage of 0.44 for `psi_fs`.
+With the option on, both models recovered these quantities, with a coverage of
+at least 0.90 for `sd_det_site` and `det_y_prev`.
+
+With strong site effects, `random_det` needed longer chains. With an SD of 1 and
+1,000 + 1,000 iterations, 93% of fits reached R-hat below 1.01. With 2,000 +
+2,000 iterations on the same data, 99% did, and the estimates did not change.
 
 ## When to use it
 
@@ -233,6 +286,13 @@ another seed after a chain stuck in a second mode (see
   seasons without data. Choose covariates that exist on every night.
 * Compare with the independent model on blocks of seasons, not by LOO,
   whenever the sites are few.
+* Verify recordings in at least 10% of site-seasons, and more when detection
+  is low. Without verification, colonization and extinction are biased at low
+  detection.
+* With minutes or other occasions close in time, check for runs of detections
+  and consider `markov`.
+* `fp_calibrate()` simulates only single-season designs, so it does not plan a
+  dynamic study; `simulate_fp_dyn()` is the starting point for that.
 
 ## References
 

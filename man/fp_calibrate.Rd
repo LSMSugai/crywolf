@@ -92,5 +92,6 @@ summary(cal)
 }
 }
 \seealso{
-\code{\link[=fp_verification_curve]{fp_verification_curve()}}, \code{\link[=simulate_fp]{simulate_fp()}}
+\code{\link[=fp_verification_curve]{fp_verification_curve()}}, \code{\link[=simulate_fp]{simulate_fp()}}; for dynamic designs,
+which this function does not simulate, \code{\link[=simulate_fp_dyn]{simulate_fp_dyn()}}
 }

@@ -322,3 +322,24 @@ Fits: 1000; failed: 0; with divergences: 3; with R-hat at or above 1.01: 1.
 | 2 | no_markov | psi_fs | 600 | -0.019300 | 0.02290 | 0.443 | 0.0234 | FALSE |
 | 2 | no_markov | psi1 | 100 | -0.017600 | 0.05130 | 0.940 | 0.1930 | TRUE |
 
+## random_det with sd = 1 and 2000 + 2000 iterations
+
+| sd_det | model | converged | ok |
+| --- | --- | --- | --- |
+| 1 | no_effect | 0.99 | 1 |
+| 1 | random_det | 0.99 | 1 |
+
+| sd_det | model | param | n | bias | rmse | coverage | width | pass |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | no_effect | col | 100 | -0.021100 | 0.03140 | 0.8900 | 0.0926 | FALSE |
+| 1 | no_effect | ext | 100 | 0.057900 | 0.06790 | 0.5500 | 0.1300 | FALSE |
+| 1 | no_effect | p10_bar | 100 | 0.013200 | 0.01390 | 0.1200 | 0.0171 | FALSE |
+| 1 | no_effect | psi_fs | 600 | -0.096900 | 0.10200 | 0.0117 | 0.0568 | FALSE |
+| 1 | no_effect | psi1 | 100 | -0.098600 | 0.11100 | 0.4900 | 0.1980 | FALSE |
+| 1 | random_det | col | 100 | 0.007550 | 0.03110 | 0.9400 | 0.1240 | TRUE |
+| 1 | random_det | ext | 100 | -0.000482 | 0.03210 | 0.9400 | 0.1150 | TRUE |
+| 1 | random_det | p10_bar | 100 | 0.000225 | 0.00457 | 0.9100 | 0.0175 | TRUE |
+| 1 | random_det | psi_fs | 600 | 0.003130 | 0.02540 | 0.9730 | 0.0987 | TRUE |
+| 1 | random_det | psi1 | 100 | 0.002000 | 0.05840 | 0.9500 | 0.2200 | TRUE |
+| 1 | random_det | sd_det_site | 100 | 0.011300 | 0.10700 | 0.9600 | 0.4320 | TRUE |
+

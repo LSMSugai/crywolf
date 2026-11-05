@@ -22,6 +22,12 @@ total <- do.call(rbind, lapply(models, function(m) {
   d <- e - w$elpd.dyn
   data.frame(model = m, elpd = sum(e), se = se(e), diff_from_dyn = sum(d), se_diff = se(d))
 }))
+pairs <- do.call(rbind, lapply(list(c("dyn", "ind"), c("dyn_mk", "ind_mk"), c("dyn_mk", "dyn"),
+                                    c("dyn_mk", "ind_rd"), c("ind_mk", "ind"), c("ind_rd", "ind")),
+                               function(p) {
+  d <- w[[paste0("elpd.", p[1])]] - w[[paste0("elpd.", p[2])]]
+  data.frame(comparison = paste(p, collapse = " - "), diff = sum(d), se = se(d))
+}))
 by_unit <- function(by) stats::aggregate(w[c("n", cols)], w[by], sum)
 by_site <- by_unit("site")
 by_fold <- by_unit("fold")
@@ -36,7 +42,7 @@ coefs <- do.call(rbind, lapply(jobs, function(j) {
   s <- j$summary
   data.frame(model = j$model, fold = j$fold, variable = s$variable, mean = s$mean)
 }))
-res <- list(units = w, total = total, by_site = by_site, by_fold = by_fold,
+res <- list(units = w, total = total, pairs = pairs, by_site = by_site, by_fold = by_fold,
             diagnostics = diag, coefs = coefs)
 saveRDS(res, file.path(dir, "results.rds"))
 
@@ -55,6 +61,7 @@ writeLines(c(
                 "the units of a fold share a training fit."), nrow(w)),
   "",
   "## Total", "", md(total), "",
+  "## Pairs of models", "", md(pairs), "",
   "## By site", "", md(by_site), "",
   "## By fold", "", md(by_fold), "",
   "## Convergence of the training fits", "", md(diag, 3)

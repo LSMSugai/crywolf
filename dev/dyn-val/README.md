@@ -34,13 +34,18 @@ Tables are in `results.md`.
 
 | # | Outcome | Detail |
 |---|---|---|
-| 1 | Not met as written | 9 of the 144 `lowp` cells fall below 95% (lowest 0.60), all with p11 = 0.15 and no verification. `random_det` with sd = 1 reaches 0.93: 7 fits have R-hat of 1.01 to 1.02, mostly in the detection intercept, with no divergences. All other cells reach at least 0.967 |
+| 1 | Not met as written | 9 of the 144 `lowp` cells fall below 95% (lowest 0.60), all with p11 = 0.15 and no verification. `random_det` with sd = 1 reaches 0.93: 7 fits have R-hat of 1.01 to 1.02, mostly in the detection intercept, with no divergences. With 2000 + 2000 iterations it reaches 0.99. All other cells reach at least 0.967 |
 | 2 | Met | 45 of 45 groups; lowest coverage 0.906, largest absolute bias 0.024 |
 | 3 | Limits to report | p11 = 0.15 with no verification: bias of `col` from 0.12 to 0.17 and of `ext` from 0.09 to 0.13. With 10% verified: bias of `col` and `ext` above 0.05 with 3 or 6 seasons |
 | 4 | Met | Both models, 10% and 30% of occasions confirmed |
 | 5 | Met | `fp ~ x` in all three verification forms. `fp ~ 1` costs coverage of `p10_bar` (0.72 to 0.89) and a bias of up to 0.018 in `psi_fs` |
 | 6 | Met | Lowest p = 0.039 (`verified_(Intercept)`); `ext_(Intercept)` has p = 0.99 |
-| 7 | `markov` met; `random_det` met on coverage | Coverage of `sd_det_site` 0.93 and 0.97, of `det_y_prev` 0.94 and 0.90. `random_det` with sd = 1 misses criterion 1 |
+| 7 | `markov` met; `random_det` met, with longer chains for large site effects | Coverage of `sd_det_site` 0.93 and 0.97, of `det_y_prev` 0.94 and 0.90. `random_det` with sd = 1 meets criterion 1 only with 2000 + 2000 iterations |
+
+`run_randet_long.R` reran the cell of `random_det` with sd = 1 on the same data
+and seeds, after these results were known. One of its 100 fits has R-hat of 1.01,
+and none has divergences. The estimates did not change: the bias and coverage of
+every quantity stayed within 0.01 of the first run.
 
 Slopes such as `fp_x` are not among the quantities of criterion 2. Its coverage
 was 0.89 to 0.97. Coverage from 100 replicates has a standard error near 0.02,
@@ -58,5 +63,12 @@ dev/dyn-sim/aws/pack_code.sh $B crywolf-dyn-val
 ID=$(dev/dyn-sim/aws/launch_spot.sh $B crywolf-dyn-val dev/dyn-val/run_val.R c7a.16xlarge 62 pcps-sim-ec2 8)
 dev/dyn-sim/aws/supervise.sh $B crywolf-dyn-val dev/dyn-val/run_val.R 62 pcps-sim-ec2 8 $ID c7a.16xlarge c7i.16xlarge m7a.16xlarge
 aws s3 sync s3://$B/fpcalib/runs/crywolf-dyn-val/jobs dev/dyn-val/jobs
+```
+
+The rerun of `random_det` goes the same way, with its own run name, with
+`JOBS=dev/dyn-val/jobs-long`, the script `dev/dyn-val/run_randet_long.R` and
+30 workers on a c7a.8xlarge. Then:
+
+```bash
 Rscript dev/dyn-val/summarise.R
 ```
