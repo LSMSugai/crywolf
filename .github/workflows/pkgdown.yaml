@@ -27,15 +27,19 @@ jobs:
         with:
           extra-packages: any::pkgdown, local::.
           needs: website
-      - name: Month, for the CmdStan cache key
+      - name: Month and runner image, for the CmdStan cache key
         id: month
-        run: echo "month=$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "month=$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+          echo "image=${ImageVersion:-none}" >> "$GITHUB_OUTPUT"
         shell: bash
       - name: Cache CmdStan
         uses: actions/cache@v4
         with:
           path: ~/.cmdstan
-          key: cmdstan-${{ runner.os }}-${{ runner.arch }}-${{ steps.month.outputs.month }}
+          # same key as in R-CMD-check.yaml, so the workflows share it; without the
+          # image, a CmdStan built on another Ubuntu is restored and no chain runs
+          key: cmdstan-${{ runner.os }}-${{ runner.arch }}-${{ steps.month.outputs.image }}-${{ steps.month.outputs.month }}
       - name: Install CmdStan
         run: |
           # a cache restored from an interrupted build has no stanc: reinstall
