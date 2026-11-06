@@ -81,6 +81,7 @@ articles:
     navbar: ~
     contents:
       - crywolf
+      - articles/how-crywolf-works
   - title: From data to results
     navbar: From data to results
     contents:
