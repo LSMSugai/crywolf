@@ -49,6 +49,73 @@ test_that("confirmed occasions are validated and mark sites as occupied", {
   expect_error(fp_data(auto, sites, confirmed = "n_true"), "two columns")
 })
 
+test_that("an occasion both verified and confirmed is warned about", {
+  sites <- data.frame(site = 1:2)
+  conf <- c("n_true", "n_false")
+  auto <- data.frame(site = c(1, 1, 2, 2), occasion_id = c("a", "b", "a", "b"),
+                     y = c(1, 0, 1, 0), n_true = c(1, NA, 0, NA),
+                     n_false = c(0, NA, 1, NA))
+  expect_warning(fp_data(auto, sites, confirmed = conf,
+                         verified = data.frame(site = 1, occasion_id = "a", y = 1)),
+                 "1 verified occasion", class = "crywolf_design_warning")
+
+  # the same identifier at another site, or an unchecked occasion, is no overlap
+  expect_no_warning(fp_data(auto, sites, confirmed = conf,
+    verified = data.frame(site = c(1, 2), occasion_id = c("b", "b"), y = 1)))
+  # without identifiers in both tables, or without `confirmed`, nothing to compare
+  expect_no_warning(fp_data(auto, sites, confirmed = conf,
+                            verified = data.frame(site = 1, y = 1)))
+  expect_no_warning(fp_data(auto[names(auto) != "occasion_id"], sites, confirmed = conf,
+    verified = data.frame(site = 1, occasion_id = "a", y = 1)))
+  expect_no_warning(fp_data(auto, sites,
+    verified = data.frame(site = 1, occasion_id = "a", y = 1)))
+  # missing identifiers do not match each other
+  na_id <- transform(auto, occasion_id = NA_character_)
+  expect_no_warning(fp_data(na_id, sites, confirmed = conf,
+    verified = data.frame(site = 1, occasion_id = NA_character_, y = 1)))
+})
+
+test_that("the overlap of verified and confirmed occasions is by species", {
+  auto <- data.frame(site = rep(1:2, each = 2), occasion_id = "a",
+                     species = rep(c("s1", "s2"), 2), y = c(1, 0, 0, 1),
+                     n_true = c(1, NA, NA, 1), n_false = c(1, NA, NA, 0))
+  warned <- function(sp) {
+    w <- character()
+    withCallingHandlers(
+      fp_data(auto, data.frame(site = 1:2), species = "species",
+              confirmed = c("n_true", "n_false"),
+              verified = data.frame(site = 1, occasion_id = "a", species = sp, y = 1)),
+      crywolf_design_warning = function(e) {
+        w <<- c(w, conditionMessage(e))
+        invokeRestart("muffleWarning")
+      })
+    any(grepl("1 verified occasion", w))
+  }
+  expect_true(warned("s1"))
+  expect_false(warned("s2"))   # same site and occasion, unchecked for this species
+})
+
+test_that("the overlap of verified and confirmed occasions is by season", {
+  # occasion identifiers that restart in each season
+  auto <- data.frame(site = rep(1:2, each = 2), season = rep(1:2, 2), occasion_id = 1,
+                     y = c(1, 0, 0, 1), n_true = c(1, NA, NA, 1),
+                     n_false = c(1, NA, NA, 0))
+  warned <- function(s) {
+    w <- character()
+    withCallingHandlers(
+      fp_data(auto, data.frame(site = 1:2), season = "season",
+              confirmed = c("n_true", "n_false"),
+              verified = data.frame(site = 1, season = s, occasion_id = 1, y = 1)),
+      crywolf_design_warning = function(e) {
+        w <<- c(w, conditionMessage(e))
+        invokeRestart("muffleWarning")
+      })
+    any(grepl("1 verified occasion", w))
+  }
+  expect_true(warned(1))
+  expect_false(warned(2))
+})
+
 test_that("print separates verified sites, confirmed occasions, and known occupancy", {
   s <- simulate_fp(nsite = 60, nocc = 8, frac_confirmed = 0.4, frac_verified = 0, seed = 1)
   out <- capture.output(print(s$data))
