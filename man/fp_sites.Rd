@@ -11,7 +11,7 @@ fp_sites(object, prob = 0.95, ndraws = NULL, seed = NULL)
 }
 \arguments{
 \item{object}{An \code{fp_occu} object, or an \code{fp_occu_dyn} object
-(experimental; see Details).}
+(see Details).}
 
 \item{prob}{Width of the credible intervals.}
 

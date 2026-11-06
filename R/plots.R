@@ -197,7 +197,7 @@ plot.fp_effects <- function(x, xlab = x$covariate[1], ...) {
 #' but a high false-positive rate can still be unlikely to be occupied.
 #'
 #' @param object An `fp_occu` object, or an `fp_occu_dyn` object
-#'   (experimental; see Details).
+#'   (see Details).
 #' @param prob Width of the credible intervals.
 #' @param ndraws Number of posterior draws to use (all by default).
 #' @param seed Optional seed for the choice of draws.

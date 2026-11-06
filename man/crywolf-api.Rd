@@ -18,8 +18,8 @@ an argument after the existing named ones (and before a trailing
 \item \strong{Classes}: the crywolf classes their results inherit from
 (\code{fp_data}, \code{fp_occu}, \code{fp_priors}, \code{fp_sim}, \code{fp_calibration},
 \code{fp_sbc}, \code{fp_ppc}, \code{fp_prior_predictive}, \code{fp_effects}, \code{fp_sites},
-\code{fp_threshold_sweep}, \code{fp_sheepdog}, \code{summary.fp_occu},
-\code{summary.fp_calibration}, \code{summary.fp_sbc}), and the class of the
+\code{fp_threshold_sweep}, \code{fp_sheepdog}, \code{fp_occu_dyn}, \code{fp_sim_dyn},
+\code{summary.fp_occu}, \code{summary.fp_calibration}, \code{summary.fp_sbc}), and the class of the
 design warnings of \code{\link[=fp_data]{fp_data()}} (\code{crywolf_design_warning}), which code
 may catch. Classes of other packages (the \code{CmdStanModel} of
 \code{\link[=fp_compile]{fp_compile()}}, the \code{psis_loo} of \code{loo()}) are theirs to keep.
@@ -56,11 +56,12 @@ Fitting and checking: \code{\link[=fp_occu]{fp_occu()}}, \code{\link[=fp_priors]
 \code{\link[=fp_compile]{fp_compile()}}, \code{\link[=fp_stan_file]{fp_stan_file()}}, \code{\link[=fp_prior_predictive]{fp_prior_predictive()}}, \code{\link[=fp_ppc]{fp_ppc()}},
 \code{\link[=fp_loo_weights]{fp_loo_weights()}}, the methods in \link{fp_occu-methods} (\code{print()},
 \code{summary()}, \code{coef()}, \code{predict()}, \code{loo()}, \code{as_draws_df()}) and
-\code{\link[=simulate.fp_occu]{simulate.fp_occu()}}.
+\code{\link[=simulate.fp_occu]{simulate.fp_occu()}}. From 2.3.0, \code{\link[=fp_occu_dyn]{fp_occu_dyn()}}, the dynamic
+(multi-season) model, with its methods and \code{\link[=simulate.fp_occu_dyn]{simulate.fp_occu_dyn()}}.
 
 Results and simulation: \code{\link[=fp_effects]{fp_effects()}}, \code{\link[=fp_sites]{fp_sites()}}, \code{\link[=simulate_fp]{simulate_fp()}},
 \code{\link[=fp_calibrate]{fp_calibrate()}}, \code{\link[=fp_verification_curve]{fp_verification_curve()}}, \code{\link[=fp_calibrate_fit]{fp_calibrate_fit()}},
-\code{\link[=fp_sbc]{fp_sbc()}}.
+\code{\link[=fp_sbc]{fp_sbc()}}, and, from 2.3.0, \code{\link[=simulate_fp_dyn]{simulate_fp_dyn()}}.
 
 The \code{print()}, \code{summary()} and \code{plot()} methods of the classes above
 are stable too.
@@ -73,10 +74,7 @@ are stable too.
 classifier calibration from 'sheepdog' into the model or pass data to
 'unmarked', and are still being evaluated. Their arguments, classes and
 results may change in a minor version; the NEWS will say so. Each says
-so in its help. \code{\link[=fp_occu_dyn]{fp_occu_dyn()}}, the dynamic (multi-season) model, with
-the \code{fp_occu_dyn} class and its methods, and its simulator
-\code{\link[=simulate_fp_dyn]{simulate_fp_dyn()}}, are experimental in the same way; the \code{season} and \code{season_covs} arguments of \code{\link[=fp_data]{fp_data()}} that feed
-it are stable. \code{\link[=fp_occu_ms]{fp_occu_ms()}}, the multispecies model, with the
+so in its help. \code{\link[=fp_occu_ms]{fp_occu_ms()}}, the multispecies model, with the
 \code{fp_occu_ms} class and its methods, is in development and experimental
 in the same way, as is the \code{species} argument of \code{\link[=fp_data]{fp_data()}} that
 feeds it. \code{\link[=fp_read_sheepdog]{fp_read_sheepdog()}}, by contrast, reads a versioned

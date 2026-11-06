@@ -82,9 +82,7 @@ periods), in which the occupancy state of each site changes between
 seasons by colonization and extinction. Within each season the
 observation model is that of \code{\link[=fp_occu]{fp_occu()}}: the multiple-methods and
 observation-confirmation designs, verified detections, recorder and site
-effects, false-positive covariates and runs of detections. \strong{This
-function is experimental} (see \link{crywolf-api}): its arguments, results
-and output names may change in a minor version.
+effects, false-positive covariates and runs of detections.
 }
 \details{
 The occupancy state of site \eqn{i} in the first season is Bernoulli with

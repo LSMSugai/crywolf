@@ -188,7 +188,7 @@ and the values of each species with its name in brackets:
 \code{(i - 1) \%/\% nspecies + 1} and species \code{(i - 1) \%\% nspecies + 1}.
 }
 
-\section{Dynamic model (experimental)}{
+\section{Dynamic model}{
 
 \code{\link[=fp_occu_dyn]{fp_occu_dyn()}} uses the names above, except that the coefficients of
 initial occupancy are \code{psi1_(Intercept)} and \verb{psi1_<term>} (in place of

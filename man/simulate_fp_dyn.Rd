@@ -72,8 +72,7 @@ Generates one dataset from known parameters for \code{\link[=fp_occu_dyn]{fp_occ
 occupancy state of each site changes between seasons by colonization and
 extinction, and within each season it is observed as in \code{\link[=simulate_fp]{simulate_fp()}},
 by an automated method with false positives and, at a random subset of
-site-seasons, a verified method without them. \strong{This function is
-experimental} (see \link{crywolf-api}).
+site-seasons, a verified method without them.
 }
 \details{
 The site covariate \code{x} and the site-season covariate \code{rain} are

@@ -5,9 +5,7 @@
 #' seasons by colonization and extinction. Within each season the
 #' observation model is that of [fp_occu()]: the multiple-methods and
 #' observation-confirmation designs, verified detections, recorder and site
-#' effects, false-positive covariates and runs of detections. **This
-#' function is experimental** (see [crywolf-api]): its arguments, results
-#' and output names may change in a minor version.
+#' effects, false-positive covariates and runs of detections.
 #'
 #' The occupancy state of site \eqn{i} in the first season is Bernoulli with
 #' probability \eqn{\psi_{1,i}}. In each later season \eqn{t}, an occupied
@@ -512,8 +510,7 @@ as_draws_df.fp_occu_dyn <- function(x, ...) {
 #' covariates, which site-seasons were verified and which occasions were
 #' checked), as [simulate.fp_occu()] does for a single season. The latent
 #' states are drawn anew over seasons, from initial occupancy, colonization
-#' and extinction, and the detections given them. **Experimental**, like
-#' [fp_occu_dyn()].
+#' and extinction, and the detections given them.
 #'
 #' @param object An `fp_occu_dyn` object.
 #' @inheritParams simulate.fp_occu

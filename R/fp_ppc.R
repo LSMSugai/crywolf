@@ -5,8 +5,8 @@
 #' Bayesian p-value. Detections are summed per site, so the check asks whether
 #' the model reproduces how many detections each site gets.
 #'
-#' @param object An `fp_occu` object, or an `fp_occu_dyn` object
-#'   (experimental), for which detections are summed per site and season
+#' @param object An `fp_occu` object, or an `fp_occu_dyn` object,
+#'   for which detections are summed per site and season
 #'   and the latent states are drawn jointly over seasons by forward
 #'   filtering, backward sampling.
 #' @param method Which data to check: `"automated"` (default; every site) or

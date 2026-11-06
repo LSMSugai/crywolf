@@ -49,9 +49,6 @@ pair <- function(name) {
 cat(crywolf:::.stale_note(res, "dynamic-results.rds"))
 ```
 
-*`fp_occu_dyn()` is experimental: its interface may change in a later
-version.*
-
 The other articles on the `curiango` data (Piatti et al., 2026) treat each
 site-night as an independent site. A recorder that picked up the Common
 Pauraque last night is then no more likely to pick it up tonight than one

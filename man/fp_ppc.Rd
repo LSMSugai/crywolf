@@ -13,8 +13,8 @@ fp_ppc(
 )
 }
 \arguments{
-\item{object}{An \code{fp_occu} object, or an \code{fp_occu_dyn} object
-(experimental), for which detections are summed per site and season
+\item{object}{An \code{fp_occu} object, or an \code{fp_occu_dyn} object,
+for which detections are summed per site and season
 and the latent states are drawn jointly over seasons by forward
 filtering, backward sampling.}
 

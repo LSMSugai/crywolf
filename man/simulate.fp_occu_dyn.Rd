@@ -34,8 +34,7 @@ structure of the original data (sites, seasons, occasions and their
 covariates, which site-seasons were verified and which occasions were
 checked), as \code{\link[=simulate.fp_occu]{simulate.fp_occu()}} does for a single season. The latent
 states are drawn anew over seasons, from initial occupancy, colonization
-and extinction, and the detections given them. \strong{Experimental}, like
-\code{\link[=fp_occu_dyn]{fp_occu_dyn()}}.
+and extinction, and the detections given them.
 }
 \examples{
 \dontrun{
