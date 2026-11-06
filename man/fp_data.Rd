@@ -119,8 +119,9 @@ the species have unequal numbers of occasions (often occasions without a
 detection left out for some species). With \code{verified} and \code{confirmed}, it
 warns about occasions present in \code{verified} and as confirmed rows of
 \code{auto}, which give two likelihood terms for one verdict. Occasions are
-compared by site and \code{occasion_id}, and by species with \code{species}, only
-when both tables have an \code{occasion_id} column.
+compared by site and \code{occasion_id}, and also by species with \code{species}
+and by season with \code{season}, only when both tables have an \code{occasion_id}
+column.
 \code{\link[=fp_aggregate]{fp_aggregate()}} builds \code{auto} from classifier output.
 }
 \examples{

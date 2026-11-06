@@ -81,8 +81,9 @@
 #' detection left out for some species). With `verified` and `confirmed`, it
 #' warns about occasions present in `verified` and as confirmed rows of
 #' `auto`, which give two likelihood terms for one verdict. Occasions are
-#' compared by site and `occasion_id`, and by species with `species`, only
-#' when both tables have an `occasion_id` column.
+#' compared by site and `occasion_id`, and also by species with `species`
+#' and by season with `season`, only when both tables have an `occasion_id`
+#' column.
 #' [fp_aggregate()] builds `auto` from classifier output.
 #'
 #' @return An object of class `fp_data`: a list with the tables `auto`,
@@ -148,7 +149,7 @@ fp_data <- function(auto, sites, verified = NULL, site = "site", y = "y",
     attr(seasons, "step") <- NULL
   }
   if (!is.null(season_covs)) .check_season_covs(season_covs, season, seasons, sites, site)
-  .warn_design(auto, sites, verified, site, y, confirmed, species)
+  .warn_design(auto, sites, verified, site, y, confirmed, species, season)
   if (!is.null(season)) .warn_seasons(auto, verified, confirmed, season, seasons)
   if (!is.null(species)) .warn_species(auto, verified, site, y, species, species_names)
 
@@ -325,7 +326,7 @@ print.fp_data <- function(x, ...) {
 
 # warnings about data that fit but are unlikely to be what the user meant;
 # their class lets the simulation functions silence them
-.warn_design <- function(auto, sites, verified, site, y, confirmed, species) {
+.warn_design <- function(auto, sites, verified, site, y, confirmed, species, season) {
   warn <- function(...) {
     msg <- paste0(...)
     warning(structure(class = c("crywolf_design_warning", "warning", "condition"),
@@ -359,7 +360,7 @@ print.fp_data <- function(x, ...) {
   }
   # `fp_data()` has no occasion identifier of its own, so this needs the
   # column that `fp_aggregate()` keeps from a 'sheepdog' export
-  keys <- c(site, "occasion_id", species)
+  keys <- c(site, "occasion_id", species, season)
   if (!is.null(confirmed) && !is.null(verified) &&
       all(keys %in% names(auto)) && all(keys %in% names(verified))) {
     key <- function(d) {
