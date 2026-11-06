@@ -167,7 +167,7 @@
 #' `log_lik[i]` is the log-likelihood of unit `i`, site
 #' `(i - 1) %/% nspecies + 1` and species `(i - 1) %% nspecies + 1`.
 #'
-#' @section Dynamic model (experimental):
+#' @section Dynamic model:
 #' [fp_occu_dyn()] uses the names above, except that the coefficients of
 #' initial occupancy are `psi1_(Intercept)` and `psi1_<term>` (in place of
 #' `occ_*`), and adds the coefficients of colonization, `col_(Intercept)`

@@ -405,8 +405,8 @@ menos que `markov`. A vinheta `dynamic` tem a DAG do modelo e figuras da valida�
 do k-fold e dos pikas (PR #22).
 
 **Depois do 2.2.0:**
-1. Tirar a marca de experimental de `fp_occu_dyn()` e `simulate_fp_dyn()` e
-   incluir os nomes no snapshot da API, em commit separado.
+1. Feito: `fp_occu_dyn()` e `simulate_fp_dyn()` saíram de experimental e entraram
+   no snapshot da API (critério 9); chega aos usuários no release seguinte.
 2. `fp_calibrate()` com desenhos dinâmicos, previsto no passo de validação e não
    feito. Hoje a função só simula uma temporada, e a vinheta avisa disso.
 3. Opcional: dados de lobos de Miller et al. (2013), pedidos à Montana FWP em

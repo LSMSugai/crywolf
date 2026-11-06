@@ -4,8 +4,7 @@
 #' occupancy state of each site changes between seasons by colonization and
 #' extinction, and within each season it is observed as in [simulate_fp()],
 #' by an automated method with false positives and, at a random subset of
-#' site-seasons, a verified method without them. **This function is
-#' experimental** (see [crywolf-api]).
+#' site-seasons, a verified method without them.
 #'
 #' @param nsite Number of sites.
 #' @param nseason Number of seasons.

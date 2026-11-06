@@ -1,3 +1,10 @@
+# crywolf (development version)
+
+* `fp_occu_dyn()`, `simulate_fp_dyn()` and the `fp_occu_dyn` and `fp_sim_dyn`
+  classes and their methods are no longer experimental. Their arguments,
+  classes and output names joined the stable interface after 2.2.0 was
+  released without changes to them (see `help("crywolf-api")`).
+
 # crywolf 2.2.0
 
 ## Multispecies model (in development)

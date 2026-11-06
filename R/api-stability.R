@@ -13,8 +13,8 @@
 #' * **Classes**: the crywolf classes their results inherit from
 #'   (`fp_data`, `fp_occu`, `fp_priors`, `fp_sim`, `fp_calibration`,
 #'   `fp_sbc`, `fp_ppc`, `fp_prior_predictive`, `fp_effects`, `fp_sites`,
-#'   `fp_threshold_sweep`, `fp_sheepdog`, `summary.fp_occu`,
-#'   `summary.fp_calibration`, `summary.fp_sbc`), and the class of the
+#'   `fp_threshold_sweep`, `fp_sheepdog`, `fp_occu_dyn`, `fp_sim_dyn`,
+#'   `summary.fp_occu`, `summary.fp_calibration`, `summary.fp_sbc`), and the class of the
 #'   design warnings of [fp_data()] (`crywolf_design_warning`), which code
 #'   may catch. Classes of other packages (the `CmdStanModel` of
 #'   [fp_compile()], the `psis_loo` of `loo()`) are theirs to keep.
@@ -48,11 +48,12 @@
 #' [fp_compile()], [fp_stan_file()], [fp_prior_predictive()], [fp_ppc()],
 #' [fp_loo_weights()], the methods in [fp_occu-methods] (`print()`,
 #' `summary()`, `coef()`, `predict()`, `loo()`, `as_draws_df()`) and
-#' [simulate.fp_occu()].
+#' [simulate.fp_occu()]. From 2.3.0, [fp_occu_dyn()], the dynamic
+#' (multi-season) model, with its methods and [simulate.fp_occu_dyn()].
 #'
 #' Results and simulation: [fp_effects()], [fp_sites()], [simulate_fp()],
 #' [fp_calibrate()], [fp_verification_curve()], [fp_calibrate_fit()],
-#' [fp_sbc()].
+#' [fp_sbc()], and, from 2.3.0, [simulate_fp_dyn()].
 #'
 #' The `print()`, `summary()` and `plot()` methods of the classes above
 #' are stable too.
@@ -63,10 +64,7 @@
 #' classifier calibration from 'sheepdog' into the model or pass data to
 #' 'unmarked', and are still being evaluated. Their arguments, classes and
 #' results may change in a minor version; the NEWS will say so. Each says
-#' so in its help. [fp_occu_dyn()], the dynamic (multi-season) model, with
-#' the `fp_occu_dyn` class and its methods, and its simulator
-#' [simulate_fp_dyn()], are experimental in the same way; the `season` and `season_covs` arguments of [fp_data()] that feed
-#' it are stable. [fp_occu_ms()], the multispecies model, with the
+#' so in its help. [fp_occu_ms()], the multispecies model, with the
 #' `fp_occu_ms` class and its methods, is in development and experimental
 #' in the same way, as is the `species` argument of [fp_data()] that
 #' feeds it. [fp_read_sheepdog()], by contrast, reads a versioned
