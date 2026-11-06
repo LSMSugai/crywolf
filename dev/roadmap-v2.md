@@ -203,6 +203,13 @@ e no Zenodo com o `fp_occu_dyn()` e a vinheta `dynamic`, e submeter o 2.2.0
 ao CRAN uns 1–2 meses depois do aceite do 2.1.0 (a política do CRAN pede
 atualizações espaçadas), talvez já com o começo do multiespécies.
 
+**Atualização (05/11/2026):** o 2.1.0 segue em `incoming/newbies` no CRAN, e o
+Diogo decidiu não esperar o aceite para o release no GitHub e no Zenodo. O 2.2.0
+sai quando o ajuste de 16 espécies do FrogNet (`crywolf-ms-fu`) chegar e for
+conferido. O envio do 2.2.0 ao CRAN continua depois do aceite do 2.1.0 e só com
+pedido do Diogo. Se o CRAN pedir correções no 2.1.0, a resposta sai do branch de
+envio, não da `main`.
+
 ## Riscos
 
 - O `instantiate` pode não suportar threading do jeito que o pacote usa;
@@ -379,6 +386,32 @@ parecida com a do modelo independente: a falta de ajuste está dentro das
 noites (minutos independentes), não na dinâmica. `markov` com o dinâmico
 não foi ajustado. Vinheta `dynamic` com os resultados pré-computados.
 
+**Validação concluída (05/11/2026).** Critérios de saída de experimental em
+`dev/dyn-val/README.md`, definidos antes dos resultados.
+
+| Critério | Situação |
+|---|---|
+| 1, convergência | não atendido como escrito: 9 células com p11 = 0,15 sem verificação; `random_det` com sd = 1 precisa de 2000 + 2000. O Diogo considera pontual |
+| 2, recuperação | atendido em 45 de 45 células; cobertura mínima 0,906, viés máximo 0,024 |
+| 3 a 7, limites, calibração, SBC, `random_det`, `markov` | atendidos, com os limites descritos na vinheta |
+| 8, segundo conjunto de dados | atendido com os pikas de Goldman et al. (2023), em `dev/dyn-pika/`: `dyn` 178,7 (EP 42,6) acima de `ind` por LOO de parcelas |
+| 9, um release sem mudança de interface | pendente: 2.2.0, depois os nomes entram em `tests/testthat/test-api.R` |
+| 10, documentação dos limites | atendido |
+
+Na curiango, a validação cruzada em blocos pôs `dyn_mk` em primeiro: 206,9
+(EP 33,4) acima de `ind_mk` e 481,3 (EP 120,1) acima de `dyn`. Isso respondeu ao
+risco abaixo sobre dinâmica e efeito de noite: `random_det` melhora `ind`, mas
+menos que `markov`. A vinheta `dynamic` tem a DAG do modelo e figuras da validação,
+do k-fold e dos pikas (PR #22).
+
+**Depois do 2.2.0:**
+1. Tirar a marca de experimental de `fp_occu_dyn()` e `simulate_fp_dyn()` e
+   incluir os nomes no snapshot da API, em commit separado.
+2. `fp_calibrate()` com desenhos dinâmicos, previsto no passo de validação e não
+   feito. Hoje a função só simula uma temporada, e a vinheta avisa disso.
+3. Opcional: dados de lobos de Miller et al. (2013), pedidos à Montana FWP em
+   05/11/2026, como comparação com temporadas independentes.
+
 ### Riscos
 
 - Tempo: a observação domina o custo hoje, e ela não muda; o forward
@@ -409,6 +442,10 @@ não publicar a lista de gravações por sítio (sem ela não há
 não-detecções).
 
 ### Fase A (2.x, depois do dinâmico): comunidade com falsos positivos por espécie
+
+**Ordem decidida em 05/11/2026:** um efeito por unidade em logit(p10) só entra no
+pacote depois de `u`, falso positivo por sítio × espécie e sazonalidade (PRs 3 a
+5), com recuperação por simulação e a escolha entre `sigma_t` comum ou por espécie.
 
 `fp_occu_ms()`: cada espécie tem ocupação, detecção verdadeira e taxa de
 falso positivo próprias, com os coeficientes sorteados de distribuições da
