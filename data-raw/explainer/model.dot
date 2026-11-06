@@ -1,0 +1,27 @@
+digraph model {
+  graph [rankdir=TB, fontname="Helvetica", bgcolor=white, nodesep=0.7, ranksep=0.4, pad=0.1]
+  node  [shape=plaintext, fontname="Helvetica", fontsize=11, fontcolor="#241042"]
+  edge  [color="#241042", arrowsize=0.6, penwidth=0.8, fontname="Helvetica",
+         fontsize=11, fontcolor="#241042"]
+
+  site [shape=box, color="#241042", penwidth=0.8, margin="0.12,0.06", label="a site"]
+  occupied [shape=box, color="#241042", penwidth=0.8, margin="0.12,0.06", label=<<B>occupied</B> (z = 1)>]
+  empty [shape=box, color="#241042", penwidth=0.8, margin="0.12,0.06", label=<<B>empty</B> (z = 0)>]
+  true_nights [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="2" CELLPADDING="0">
+    <TR><TD COLSPAN="8">detection each night with p<SUB>11</SUB></TD></TR>
+    <TR><TD BGCOLOR="#241042" WIDTH="14" HEIGHT="20"></TD><TD BGCOLOR="#E8E8E8" WIDTH="14"></TD>
+        <TD BGCOLOR="#241042" WIDTH="14"></TD><TD BGCOLOR="#241042" WIDTH="14"></TD>
+        <TD BGCOLOR="#E8E8E8" WIDTH="14"></TD><TD BGCOLOR="#241042" WIDTH="14"></TD>
+        <TD BGCOLOR="#E8E8E8" WIDTH="14"></TD><TD BGCOLOR="#241042" WIDTH="14"></TD></TR></TABLE>>]
+  false_nights [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="2" CELLPADDING="0">
+    <TR><TD COLSPAN="8">detection each night with p<SUB>10</SUB></TD></TR>
+    <TR><TD BGCOLOR="#E8E8E8" WIDTH="14" HEIGHT="20"></TD><TD BGCOLOR="#E8E8E8" WIDTH="14"></TD>
+        <TD BGCOLOR="#E8E8E8" WIDTH="14"></TD><TD BGCOLOR="#E8E8E8" WIDTH="14"></TD>
+        <TD BGCOLOR="#FF3EA5" WIDTH="14"></TD><TD BGCOLOR="#E8E8E8" WIDTH="14"></TD>
+        <TD BGCOLOR="#E8E8E8" WIDTH="14"></TD><TD BGCOLOR="#E8E8E8" WIDTH="14"></TD></TR></TABLE>>]
+
+  site -> occupied [label="  ψ"]
+  site -> empty [label="  1 − ψ"]
+  occupied -> true_nights
+  empty -> false_nights
+}

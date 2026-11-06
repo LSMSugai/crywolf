@@ -1,0 +1,18 @@
+digraph results {
+  graph [rankdir=LR, fontname="Helvetica", bgcolor=white, nodesep=0.3, ranksep=0.55, pad=0.1]
+  node  [shape=box, fontname="Helvetica", fontsize=10, color="#241042",
+         fontcolor="#241042", margin="0.1,0.07", penwidth=0.8]
+  edge  [color="#241042", arrowsize=0.6, penwidth=0.8]
+
+  birdnet [label=<BirdNET output<BR/><FONT FACE="IBM Plex Mono" POINT-SIZE="9">fp_read_birdnet()<BR/>fp_read_validation()</FONT>>]
+  sheepdog [label=<sheepdog export<BR/><FONT FACE="IBM Plex Mono" POINT-SIZE="9">fp_read_sheepdog()</FONT>>]
+  threshold [label=<one score threshold<BR/><FONT FACE="IBM Plex Mono" POINT-SIZE="9">fp_aggregate()<BR/>fp_data(), fp_occu()</FONT>>]
+  draws [label=<calibration draws<BR/><FONT FACE="IBM Plex Mono" POINT-SIZE="9">fp_draws_data()<BR/>fp_occu_mc()</FONT>>]
+  results [label=<results<BR/><FONT POINT-SIZE="9">ψ, p11, p10</FONT><BR/><FONT FACE="IBM Plex Mono" POINT-SIZE="9">fp_sites(), fp_effects()<BR/>fp_ppc(), loo(), fp_calibrate_fit()</FONT>>, penwidth=1.6]
+
+  birdnet -> threshold
+  sheepdog -> threshold
+  sheepdog -> draws
+  threshold -> results
+  draws -> results
+}
