@@ -1,5 +1,5 @@
 ---
-title: "How crywolf works, in pictures"
+title: "Illustrating how crywolf works"
 ---
 
 ```{r, include = FALSE}
