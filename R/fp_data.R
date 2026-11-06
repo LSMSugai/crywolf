@@ -80,8 +80,9 @@
 #' the species have unequal numbers of occasions (often occasions without a
 #' detection left out for some species). With `verified` and `confirmed`, it
 #' warns about occasions present in `verified` and as confirmed rows of
-#' `auto`, which give two likelihood terms for one verdict. Occasions are
-#' compared by site and `occasion_id`, and also by species with `species`
+#' `auto`, which enter the likelihood twice. That is correct only for two
+#' independent reviews, not for one verdict copied to both tables. Occasions
+#' are compared by site and `occasion_id`, and also by species with `species`
 #' and by season with `season`, only when both tables have an `occasion_id`
 #' column.
 #' [fp_aggregate()] builds `auto` from classifier output.
@@ -370,8 +371,9 @@ print.fp_data <- function(x, ...) {
     n_both <- length(intersect(key(verified), key(auto[!is.na(auto[[confirmed[1]]]), ])))
     if (n_both > 0) {
       warn(n_both, " verified occasion(s) are also confirmed occasions of `auto`, ",
-           "so the same verdict enters the likelihood twice. Keep each occasion ",
-           "in only one of the two tables.")
+           "so each enters the likelihood twice. This is correct only for two ",
+           "independent reviews. Keep a verdict copied from one table to the ",
+           "other in only one of them.")
     }
   }
   invisible(TRUE)
