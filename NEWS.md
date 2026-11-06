@@ -4,6 +4,10 @@
   classes and their methods are no longer experimental. Their arguments,
   classes and output names joined the stable interface after 2.2.0 was
   released without changes to them (see `help("crywolf-api")`).
+* `fp_data()` warns about occasions that are both in `verified` and confirmed
+  rows of `auto`, which count the same verdict twice in the likelihood. They
+  are compared by site and `occasion_id` (and species, with `species`) when
+  both tables have an `occasion_id` column, as in a 'sheepdog' export.
 
 # crywolf 2.2.0
 

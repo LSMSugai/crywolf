@@ -67,6 +67,18 @@ test_that("an export is read into the tables of fp_aggregate() and fp_data()", {
   expect_s3_class(d, "fp_data")
 })
 
+test_that("verdicts in both tables of an export are warned about", {
+  skip_if_not_installed("jsonlite")
+  dir <- write_export(file.path(tempdir(), "sheepdog-export-overlap"))
+  x <- suppressWarnings(suppressMessages(fp_read_sheepdog(dir, species = "compau")))
+  auto <- fp_aggregate(x$occasions, x$detections, threshold = 0.5,
+                       by = c("site", "occasion_id"), validation = x$validation)
+  ver <- x$verified
+  ver$occasion_id <- "a1"      # a reviewed clip, annotated as a recording too
+  expect_warning(fp_data(auto, x$sites, ver, confirmed = c("n_true", "n_false")),
+                 "1 verified occasion", class = "crywolf_design_warning")
+})
+
 test_that("clips of the top design are dropped, or kept once", {
   skip_if_not_installed("jsonlite")
   dir <- write_export(file.path(tempdir(), "sheepdog-export-top"))
