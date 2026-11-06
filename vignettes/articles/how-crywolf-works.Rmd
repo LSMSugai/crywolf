@@ -51,7 +51,8 @@ only now and then, so the sites form two groups. The model estimates ψ,
 p11 and p10 as the mixture that fits them best. Where the groups overlap, a
 site with one to four detections could be a rare caller or a false alarm;
 the data alone cannot say how many detections are false. That is what the
-known truth settles (below).
+known truth settles (below). This figure uses p11 = 0.25, lower than in the
+examples of the next section, so that the groups overlap.
 
 ## How P(occupied) is computed for one site
 
@@ -73,29 +74,43 @@ with a verified or confirmed true detection has P(occupied) = 1.
 
 <img src="figures/how-designs.png" width="820" alt="Two designs. Multiple methods: verified occasions are separate from the automated ones, and a heard call proves the site occupied. Observation confirmation: a checked occasion has nothing flagged, only false, only true, or true and false observations.">
 
-Without occasions of known state, the false-positive rate rests only on
+Without verified or confirmed data, the false-positive rate rests only on
 the priors and the gap, and `fp_occu()` warns about it. Two designs provide
 them, and they can be combined:
 
 | | **Multiple methods** (Miller et al. 2011) | **Observation confirmation** (Chambert et al. 2015) |
 |---|---|---|
-| what the expert observes | the true state of random occasions, flagged or not | whether each flag on random flagged occasions is true or false |
-| recovers best | **p11**: the classifier's misses are seen | **p10**: false flags are seen directly |
-| recovers weakly | p10: random occasions rarely land on a flag | p11: misses are never checked |
+| what the expert observes | whether a second method detects the species, on occasions of its own, chosen independently of the classifier | whether each flag on random flagged occasions is true or false |
+| recovers best | **p11**: sites with a verified detection are known to be occupied, so their automated record shows p11 | **p10**: false flags are seen directly |
+| recovers less directly | p10: through sites where the verified surveys found nothing, which are not proven empty | p11: misses are never checked |
 | anchors | **ψ**, the state: a heard call fixes z = 1 independently of the classifier | **the error rate** at the threshold; confirmed true flags also fix z = 1 |
 | guards against bias from | detection that varies with the environment | false positives that vary with the environment (with `fp = ~ covariates`) |
-| blind to | false alarms, unless an annotated occasion happens to be flagged | sites or nights where the classifier never fires |
+| blind to | false alarms at occupied sites, which p11 absorbs | sites or nights where the classifier never fires |
 | depends on the threshold? | no | yes: redo it if the threshold changes |
 | key assumptions | the expert never reports a false positive; both methods see the same state | occasions are chosen at random, not for their scores; every observation of a checked occasion is checked |
-| cost | high: most annotated occasions are empty or unflagged | low: every check is a classifier decision |
+| cost | high: each verified occasion is a full survey by an expert | low: every check is a classifier decision |
 | in crywolf | `fp_data(verified = )` | `fp_aggregate(validation = )`, `fp_data(confirmed = )` |
 
 In short, multiple methods anchors the truth about sites and protects
-against biased detection but sees few false positives; observation
-confirmation anchors the classifier's error rate cheaply but trusts the
-classifier's silence. Clips picked for their high scores contain fewer
+against biased detection, and it reaches p10 only through those sites.
+Observation confirmation anchors the classifier's error rate cheaply but
+trusts the classifier's silence. Clips picked for their high scores contain fewer
 false positives than a random sample and would understate p10, so draw the
 checked occasions at random.
+
+A verified detection is certain, but a verified occasion without a detection
+does not prove absence, because the verified method has its own detection
+probability.
+
+With confirmed occasions, false observations can also occur at occupied
+sites, so the two stories above change. `det` and `fp` then model the
+probabilities of at least one true and at least one false observation on an
+occasion, and p11 combines the two (`?fp_occu`). The two stories and the
+formulas above describe the multiple-methods design.
+
+An occasion in both `verified` and the confirmed rows of `auto` enters the
+likelihood twice. That is correct only for two independent reviews, not for
+one verdict copied to both tables, and `fp_data()` warns about it.
 
 ## Where the threshold enters
 
@@ -133,7 +148,9 @@ the calibration draws of a Bayesian calibration of the classifier
 (`fp_draws_data()`), one model is fitted per draw and the posteriors are
 pooled (`fp_occu_mc()`), so that the uncertainty about which detections are
 true reaches occupancy. Either way, crywolf estimates p10 from the known
-truth.
+truth. On the route of the draws that means the annotated recordings
+(`verified`), because the reviewed clips are the data of the calibration, so
+the observation-confirmation design does not enter it.
 
 ## Terms {#terms}
 
@@ -147,8 +164,8 @@ truth.
 | p11 | true-detection rate: the chance that an occasion at an occupied site gives y = 1 (`det = ~ …`) |
 | p10 | false-positive rate: the chance that an occasion at an empty site gives y = 1 (`fp = ~ …`) |
 | Δ (gap) | the constraint p11 > p10 at an average site, so that the two states cannot swap labels |
-| false positive | a detection at a site where the species is absent |
-| known truth | occasions whose state is certain: verified recordings or confirmed detections |
+| false positive | a detection at a site where the species is absent; with confirmed occasions, also a false observation at an occupied site |
+| known truth | what an expert established: verified recordings and confirmed detections; only a detection is certain |
 | verified | multiple-methods design: occasions surveyed by an expert by a method that cannot produce false positives |
 | confirmed | observation-confirmation design: flagged occasions whose detections an expert checked as true or false (states 0–3) |
 | threshold | the score at or above which a prediction counts as a detection (`fp_aggregate()`) |

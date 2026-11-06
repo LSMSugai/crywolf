@@ -4,6 +4,8 @@
   classes and their methods are no longer experimental. Their arguments,
   classes and output names joined the stable interface after 2.2.0 was
   released without changes to them (see `help("crywolf-api")`).
+* New article `how-crywolf-works`: what the model does and why it needs
+  verified or confirmed data, in figures and without equations.
 
 # crywolf 2.2.0
 
