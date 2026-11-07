@@ -10,6 +10,12 @@ name: pkgdown
 permissions:
   contents: write
 
+# one build at a time, in order: a slower older build must not deploy over a
+# newer one
+concurrency:
+  group: pkgdown
+  cancel-in-progress: false
+
 jobs:
   pkgdown:
     runs-on: ubuntu-latest

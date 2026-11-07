@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>crywolf cheat sheet</title>
+<style>
+@page { size: A4 landscape; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 9.8pt/1.34 Helvetica, Arial, sans-serif; color: #2c2a3a; --c: #241042; }
+.page { width: 297mm; height: 210mm; padding: 8mm 10mm 7mm; page-break-after: always;
+        display: flex; flex-direction: column; overflow: hidden; }
+.page:last-child { page-break-after: auto; }
+header { display: flex; align-items: center; gap: 4mm; border-bottom: 1.2pt solid #FF3EA5;
+         padding-bottom: 2mm; margin-bottom: 3mm; }
+header img { height: 12mm; }
+header h1 { font-size: 15pt; font-weight: 500; margin: 0; color: var(--c); }
+header p { margin: 0 0 0 auto; color: #76728a; text-align: right; }
+.cols { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; min-height: 0; }
+h2 { font-size: 10pt; font-weight: 600; color: var(--c); margin: 0 0 1mm; }
+section { margin-bottom: 3mm; }
+p { margin: 0 0 1.2mm; }
+figure { margin: 1mm 0 1.5mm; }
+figure img { width: 100%; display: block; }
+figure.half img { width: 72%; margin: 0 auto; }
+.route figure img { width: 140mm; margin: 0 auto; }
+pre, code { font-family: Menlo, Consolas, monospace; font-size: 7.9pt; }
+pre { margin: 1mm 0 1.5mm; line-height: 1.32; white-space: pre-wrap; }
+pre .c { color: #76728a; }
+table { border-collapse: collapse; width: 100%; margin: 1mm 0 1.5mm; }
+th { text-align: left; font-weight: 600; color: #5c5870; border-bottom: .6pt solid #bdbaca; }
+td { vertical-align: top; border-bottom: .3pt solid #e5e3ec; }
+th, td { padding: .5mm 1.5mm .5mm 0; }
+footer { color: #76728a; font-size: 7pt; border-top: .4pt solid #e5e3ec; padding-top: 1mm;
+         display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<div class="page">
+<header><img src="../../man/figures/logo.png" alt="">
+<h1>The model and the known truth</h1>
+<p>crywolf cheat sheet<br>provetelab.org/crywolf</p></header>
+<div class="cols">
+<div>
+<section><h2>The problem</h2>
+<figure><img src="../../vignettes/articles/figures/how-problem.png" alt=""></figure>
+<p>A classifier misses calls, and it also cries wolf. Counting a site as occupied after one detection inflates occupancy. crywolf lets detections be false and gives each site a probability of being occupied.</p></section>
+<section><h2>Two stories for every site</h2>
+<figure class="half"><img src="../../vignettes/articles/figures/how-model.png" alt=""></figure>
+<table>
+<tr><th>symbol</th><th>meaning</th><th>formula</th></tr>
+<tr><td>ψ</td><td>a site is occupied</td><td><code>occ = ~ x</code></td></tr>
+<tr><td>p11</td><td>detection at an occupied site</td><td><code>det = ~ x</code></td></tr>
+<tr><td>p10</td><td>detection at an empty site</td><td><code>fp = ~ x</code></td></tr>
+</table>
+<p>The gap Δ keeps p11 above p10 at an average site, so the two states cannot swap labels.</p></section>
+</div>
+<div>
+<section><h2>How the model tells them apart</h2>
+<figure class="half"><img src="../../vignettes/articles/figures/how-mixture.png" alt=""></figure>
+<p>Repeated occasions separate occupied from empty sites. Where the groups overlap, the data alone cannot say how many detections are false. Known truth settles that.</p></section>
+<section><h2>P(occupied) of one site</h2>
+<figure class="half"><img src="../../vignettes/articles/figures/how-p-occupied.png" alt=""></figure>
+<p>With n₁ occasions with a detection and n₀ without:</p>
+<table>
+<tr><td>Occupied</td><td>ψ × p11^n₁ × (1 − p11)^n₀</td></tr>
+<tr><td>Empty</td><td>(1 − ψ) × p10^n₁ × (1 − p10)^n₀</td></tr>
+<tr><td>P(occupied)</td><td>Occupied ÷ (Occupied + Empty)</td></tr>
+</table>
+<p><code>fp_sites()</code> repeats this for every posterior draw. A verified or confirmed true detection gives P(occupied) = 1.</p></section>
+</div>
+<div>
+<section><h2>It needs some known truth</h2>
+<figure><img src="../../vignettes/articles/figures/how-designs.png" alt=""></figure>
+<p>Without it, p10 rests only on the priors and the gap, and <code>fp_occu()</code> warns about it.</p>
+<table>
+<tr><th></th><th>multiple methods</th><th>observation confirmation</th></tr>
+<tr><td>observes</td><td>a second method, on occasions of its own</td><td>flags on random flagged occasions</td></tr>
+<tr><td>recovers best</td><td>p11</td><td>p10</td></tr>
+<tr><td>anchors</td><td>ψ, the state</td><td>the error rate at the threshold</td></tr>
+<tr><td>blind to</td><td>false alarms at occupied sites</td><td>where the classifier never fires</td></tr>
+<tr><td>new threshold</td><td>nothing to redo</td><td>redo the checks</td></tr>
+<tr><td>cost</td><td>high</td><td>low</td></tr>
+<tr><td><code>fp_data()</code></td><td><code>verified = </code></td><td><code>confirmed = </code></td></tr>
+</table>
+<p>Draw the checked occasions at random, at the threshold of the analysis. Clips picked for high scores understate p10.</p>
+<p>The same verdict in <code>verified</code> and in the confirmed rows counts twice, and <code>fp_data()</code> warns about it.</p></section>
+</div>
+</div>
+<footer><span>Figures based on drawings by Larissa S. M. Sugai. Values in the figures are illustrative.</span><span>1 of 3</span></footer>
+</div>
+
+<div class="page">
+<header><img src="../../man/figures/logo.png" alt="">
+<h1>From detections to a fit</h1>
+<p>crywolf cheat sheet<br>provetelab.org/crywolf</p></header>
+<section class="route"><h2>Choose a route</h2>
+<figure><img src="../../vignettes/articles/figures/how-results.png" alt=""></figure></section>
+<div class="cols">
+<div>
+<section><h2>Read the data</h2>
+<pre><span class="c"># BirdNET selection tables and reviewed clips</span>
+detections &lt;- fp_read_birdnet("tables")
+verdicts &lt;- fp_read_validation("verdicts.csv")
+
+<span class="c"># or an export of sheepdog</span>
+x &lt;- fp_read_sheepdog("occupancy_export",
+                      species = "compau")</pre>
+<p><code>fp_read_sheepdog()</code> drops clips drawn with <code>sampling_mode = "top"</code>, with a warning.</p></section>
+<section><h2>Build the occasions</h2>
+<figure class="half"><img src="../../vignettes/articles/figures/how-threshold.png" alt=""></figure>
+<pre>auto &lt;- fp_aggregate(occasions, detections,
+  threshold = 0.5, validation = verdicts)</pre>
+<p><code>occasions</code> lists every recording, including those without detections. For a sheepdog export, use <code>by = c("site", "occasion_id")</code>.</p></section>
+</div>
+<div>
+<section><h2>Assemble the data</h2>
+<pre><span class="c"># multiple methods</span>
+d &lt;- fp_data(auto, sites, verified,
+             recorder = "recorder")
+
+<span class="c"># observation confirmation</span>
+d &lt;- fp_data(auto, sites,
+             confirmed = c("n_true", "n_false"))
+
+<span class="c"># detection matrices instead of long tables</span>
+d &lt;- fp_data_wide(y_auto, y_verified, site_covs)</pre>
+<p><code>auto</code> has one row per occasion and <code>sites</code> one row per site. Add <code>season</code> for the dynamic model and <code>species</code> for several species.</p></section>
+<section><h2>Set the priors</h2>
+<pre>fp_priors(slope_sd = 1, gap_sd = 1)
+fp_gap_prior(n_true = 46, n_false = 4,
+             p11 = 0.6, psi = 0.5)
+pp &lt;- fp_prior_predictive(d, occ = ~ x, fp = ~ 1)
+plot(pp)</pre>
+<p><code>fp_gap_prior()</code> turns reviewed counts into a prior for the gap. Rough values of p11 and ψ come from a pilot fit or earlier work.</p></section>
+</div>
+<div>
+<section><h2>Fit</h2>
+<pre>m &lt;- fp_occu(d, occ = ~ x, det = ~ 1, fp = ~ w,
+             seed = 1)</pre>
+<table>
+<tr><th>argument</th><th>adds</th></tr>
+<tr><td><code>ver = ~ listener</code></td><td>covariates of the verified method</td></tr>
+<tr><td><code>random_recorder</code></td><td>an intercept per recorder</td></tr>
+<tr><td><code>random_fp</code>, <code>random_det</code></td><td>a site effect on each rate</td></tr>
+<tr><td><code>markov = "time"</code></td><td>runs of true detections</td></tr>
+<tr><td><code>priors = </code></td><td>a call to <code>fp_priors()</code></td></tr>
+</table></section>
+<section><h2>What can change p10</h2>
+<figure class="half"><img src="../../vignettes/articles/figures/how-covariates.png" alt=""></figure>
+<p>When false positives follow a gradient tied to occupancy, a constant p10 flattens the occupancy slope. Let <code>fp</code> depend on that gradient.</p></section>
+</div>
+</div>
+<footer><span>Figures based on drawings by Larissa S. M. Sugai. Values in the figures are illustrative.</span><span>2 of 3</span></footer>
+</div>
+
+<div class="page">
+<header><img src="../../man/figures/logo.png" alt="">
+<h1>Check, report and extend</h1>
+<p>crywolf cheat sheet<br>provetelab.org/crywolf</p></header>
+<div class="cols">
+<div>
+<section><h2>Check the fit first</h2>
+<pre>summary(m)
+plot(m, type = "trace")
+plot(m, type = "rank")
+ppc &lt;- fp_ppc(m, seed = 1)
+plot(ppc)</pre>
+<p>Do not read the estimates before looking at R-hat, the effective sample sizes, the divergences and the posterior predictive check. Use <code>fp_ppc(m, method = "verified")</code> for the verified occasions.</p></section>
+<section><h2>Read the results</h2>
+<pre>coef(m, "occ")
+summary(m, prob = 0.9)
+as_draws_df(m)
+plot(m)
+plot(fp_effects(m, "x", process = "fp"))
+predict(m, newdata, process = "occ")
+st &lt;- fp_sites(m, seed = 1)
+plot(st)</pre>
+<p><code>fp_sites()</code> gives P(occupied) and the false-positive rate of each site.</p></section>
+<section><h2>Terms</h2>
+<table>
+<tr><td>site</td><td>the unit whose occupancy is estimated</td></tr>
+<tr><td>occasion</td><td>one survey of a site: a recording, a minute or a night</td></tr>
+<tr><td>y</td><td>1 if the detector flagged the species on an occasion</td></tr>
+<tr><td>z</td><td>the hidden state of a site: 1 occupied, 0 empty</td></tr>
+<tr><td>threshold</td><td>the score from which a prediction counts as a detection</td></tr>
+<tr><td>P(tp)</td><td>the probability that one detection is true</td></tr>
+</table></section>
+</div>
+<div>
+<section><h2>Compare models</h2>
+<pre>l1 &lt;- loo(m1)
+l2 &lt;- loo(m2)
+fp_loo_weights(constant = l1, on_w = l2)</pre></section>
+<section><h2>Test the threshold</h2>
+<pre>sweep &lt;- fp_threshold_sweep(occasions, detections,
+  thresholds = c(0.1, 0.4, 0.7), sites = sites,
+  verified = verified, occ = ~ x, fp = ~ 1)
+plot(sweep)</pre>
+<p>A lower threshold lets in more true and more false detections, and p10 is estimated at that threshold.</p></section>
+<section><h2>Carry the calibration into occupancy</h2>
+<pre>x &lt;- fp_read_sheepdog("occupancy_export",
+                      species = "nyc_alb")
+versions &lt;- fp_draws_data(x, n_draws = 20, seed = 1)
+mc &lt;- fp_occu_mc(versions, occ = ~ 1, fp = NULL)
+summary(mc)</pre>
+<p>Each version of the detections gets one fit, and the posteriors are pooled. <code>sd_within</code> is the spread within a fit and <code>sd_between</code> the spread between fits. The occupancy model does not update the calibration (a cut model).</p>
+<p><code>fp = NULL</code> fits no false-positive process. To estimate p10 on this route, keep <code>fp</code> and give annotated recordings (<code>verified</code>).</p></section>
+<section><h2>What to report</h2>
+<table>
+<tr><td>model</td><td>the design, what an occasion is and how the checked occasions were chosen</td></tr>
+<tr><td>priors</td><td>every prior, with a reason</td></tr>
+<tr><td>computation</td><td>R-hat, effective sample sizes and divergences</td></tr>
+<tr><td>adequacy</td><td>posterior predictive check and model comparison</td></tr>
+<tr><td>sensitivity</td><td>refits with other priors</td></tr>
+</table>
+<p>See <code>vignette("reporting")</code>, which has a template.</p></section>
+</div>
+<div>
+<section><h2>Plan and check a design</h2>
+<pre>sim &lt;- simulate_fp(nsite = 300, nocc = 20,
+                   p10 = 0.05, frac_verified = 0.3)
+fp_verification_curve(p10 = 0.05,
+  conf_effect = 1.5, conf_cor = 0.7,
+  models = list(constant = ~ 1, on_x = ~ x))
+cal &lt;- fp_calibrate_fit(m,
+  models = list(constant = ~ 1, on_w = ~ w))
+summary(cal)</pre>
+<p><code>fp_calibrate()</code> scores the coverage and bias of a design before the fieldwork. <code>fp_calibrate_fit()</code> does it for data like the real ones.</p></section>
+<section><h2>Dynamic model</h2>
+<pre>d &lt;- fp_data(auto, sites, verified,
+             season = "night", season_covs = daily)
+fit &lt;- fp_occu_dyn(d, psi1 = ~ 1, col = ~ temp,
+                   ext = ~ temp, fp = ~ 1)</pre></section>
+<section><h2>Several species</h2>
+<pre>d &lt;- fp_data(auto, sites, verified,
+             species = "species")
+ms &lt;- fp_occu_ms(d, occ = ~ x, fp = ~ 1)</pre>
+<p>Rare species borrow strength from the others. There is no data augmentation for species never detected. <code>fp_occu_ms()</code> is in development.</p></section>
+<section><h2>Learn more</h2>
+<table>
+<tr><td><code>vignette("crywolf")</code></td><td>the model, with equations</td></tr>
+<tr><td><code>vignette("birdnet_workflow")</code></td><td>from BirdNET to a fit</td></tr>
+<tr><td><code>vignette("reporting")</code></td><td>what to report</td></tr>
+<tr><td>Illustrating how crywolf works</td><td>the model in drawings</td></tr>
+</table></section>
+</div>
+</div>
+<footer><span>Figures based on drawings by Larissa S. M. Sugai. Values in the figures are illustrative.</span><span>3 of 3</span></footer>
+</div>
+
+</body>
+</html>

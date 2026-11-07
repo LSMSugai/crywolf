@@ -6,6 +6,8 @@
   released without changes to them (see `help("crywolf-api")`).
 * New article `how-crywolf-works`: what the model does and why it needs
   verified or confirmed data, in figures and without equations.
+* The site has a three-page cheat sheet, in the tab "Cheat sheet", with the
+  figures of that article.
 * `fp_data()` warns about occasions that are both in `verified` and confirmed
   rows of `auto`, which enter the likelihood twice. That is correct only for
   two independent reviews, not for one verdict copied to both tables. They
